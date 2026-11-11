@@ -340,41 +340,74 @@ class ContentService {
     return out;
   }
 
-  // Central library: collects every mod/track zip from all servers. Works without BeamNG installed.
+  // The BeamMP Launcher's Resources folder (where BeamMP keeps multiplayer mods).
+  beammpResourcesDir() {
+    const roaming = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+    const current = path.join(roaming, 'BeamMP Launcher', 'Resources');
+    const legacy = path.join(roaming, 'BeamMP-Launcher', 'Resources');
+    return fs.existsSync(current) || !fs.existsSync(legacy) ? current : legacy;
+  }
+
+  // Older Redline versions used this folder as the central library.
+  legacyLibraryDir() { return path.join(os.homedir(), 'Documents', 'Redline Mods Library'); }
+
+  // Central library: collects every mod/track zip from all servers. Defaults to the BeamMP
+  // Launcher's Resources folder (created if missing); can be changed in App settings.
   centralLibraryDir() {
-    const dir = this.getSettings().libraryPath || path.join(os.homedir(), 'Documents', 'Redline Mods Library');
+    const dir = this.getSettings().libraryPath || this.beammpResourcesDir();
     try { fs.mkdirSync(dir, { recursive: true }); } catch { /* reported when used */ }
     return dir;
   }
 
-  // Mods available to add: the central library plus the BeamNG mods folder (if this PC has one).
-  async listUserLibrary({ beamngOnly = false } = {}) {
-    const central = beamngOnly ? null : this.centralLibraryDir();
+  isDefaultLibrary() { return !this.getSettings().libraryPath; }
+
+  // Mods available to add, tagged by source: 'beammp' (central library / launcher resources)
+  // and 'beamng' (the BeamNG mods folder, if this PC has one).
+  async listUserLibrary() {
+    const central = this.centralLibraryDir();
     const beam = this.findUserModsDir();
-    const dirs = [central, beam].filter(Boolean);
+    const sources = [[central, 'beammp'], [beam, 'beamng']].filter(([d]) => d);
     const files = [];
-    const seen = new Set();
-    const walk = (d, depth) => {
-      let items = [];
-      try { items = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
-      for (const it of items) {
-        const p = path.join(d, it.name);
-        if (it.isDirectory() && depth < 2 && it.name !== 'multiplayer') walk(p, depth + 1);
-        else if (it.isFile() && it.name.toLowerCase().endsWith('.zip') && !seen.has(it.name.toLowerCase())) {
-          seen.add(it.name.toLowerCase());
-          files.push(p);
+    for (const [dir, source] of sources) {
+      const seen = new Map(); // dedupe key -> index in files
+      const walk = (d, depth) => {
+        let items = [];
+        try { items = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+        for (const it of items) {
+          const p = path.join(d, it.name);
+          if (it.isDirectory() && depth < 2 && it.name !== 'multiplayer') { walk(p, depth + 1); continue; }
+          if (!it.isFile() || !it.name.toLowerCase().endsWith('.zip')) continue;
+          // The BeamMP launcher keeps copies as "name-1a2b3c4d.zip"; show each mod once.
+          let size = 0;
+          try { size = fs.statSync(p).size; } catch { continue; }
+          const base = it.name.toLowerCase().replace(/-[0-9a-f]{8}(?=\.zip$)/, '');
+          const key = `${base}|${size}`;
+          const hashed = base !== it.name.toLowerCase();
+          if (seen.has(key)) {
+            if (!hashed) files[seen.get(key)].file = p; // prefer the plain name
+            continue;
+          }
+          seen.set(key, files.length);
+          files.push({ file: p, source });
         }
-      }
-    };
-    for (const d of dirs) walk(d, 0);
+      };
+      walk(dir, 0);
+    }
     const mods = [];
     for (let i = 0; i < files.length; i++) {
-      this.emit('content:progress', { kind: 'library', done: i, total: files.length, label: path.basename(files[i]) });
-      const r = await this.scanMod(files[i]);
-      if (r) mods.push(r);
+      this.emit('content:progress', { kind: 'library', done: i, total: files.length, label: path.basename(files[i].file) });
+      const r = await this.scanMod(files[i].file);
+      if (r) mods.push({ ...r, source: files[i].source });
     }
     mods.sort((a, b) => a.title.localeCompare(b.title));
-    return { dir: central || beam, central, beamngDir: beam, mods };
+    const resources = this.beammpResourcesDir();
+    return {
+      dir: central,
+      central,
+      centralIsLauncher: path.resolve(central).toLowerCase() === path.resolve(resources).toLowerCase(),
+      beamngDir: beam,
+      mods,
+    };
   }
 }
 

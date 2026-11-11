@@ -79,3 +79,6 @@ body { display: flex; flex-direction: column; height: 100vh; }
 .notice { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--blue-soft); border: 1px solid rgba(77, 163, 255, 0.3); color: #a9d1ff; font-size: 13px; margin-bottom: 12px; }
 .notice svg { width: 18px; height: 18px; flex: none; }
 .notice.warn { background: rgba(255, 201, 77, 0.08); border-color: rgba(255, 201, 77, 0.25); color: #ffd97a; }
+.owner-switch { flex-wrap: nowrap; flex: none; }
+.owner-switch .chip { white-space: nowrap; }
+.pk-head .search { width: min(320px, 26vw); }

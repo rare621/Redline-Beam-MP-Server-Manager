@@ -375,7 +375,7 @@ function registerIpc() {
   handle('mods:addHost', async (id, files) => { const r = await servers.addMods(id, files); syncToLibrary([id], 'mod added'); await reconcileMapMods(id); return r; });
   handle('library:dir', () => content.centralLibraryDir());
   // This computer's own BeamNG mods (used while controlling a remote host, to upload from here).
-  handle('local:library', () => content.listUserLibrary({ beamngOnly: true }));
+  handle('local:library', () => content.listUserLibrary());
   // This computer's own stock BeamNG content (real names + photos), shown while controlling a host.
   handle('local:stock', (force) => content.getStock(force));
   // Redline's own updates always concern this computer, so these are local-only too.
@@ -387,7 +387,7 @@ function registerIpc() {
   // Move the central library to a new folder, then remove the old folder once it's empty.
   handle('library:move', async (newDir) => {
     const oldDir = path.resolve(content.centralLibraryDir());
-    const target = path.resolve(String(newDir || '').trim() || path.join(os.homedir(), 'Documents', 'Redline Mods Library'));
+    const target = path.resolve(String(newDir || '').trim() || content.beammpResourcesDir());
     if (target.toLowerCase() === oldDir.toLowerCase()) return { moved: 0, skipped: [], oldRemoved: false };
     const inside = (a, b) => a.toLowerCase().startsWith(b.toLowerCase() + path.sep);
     if (inside(target, oldDir) || inside(oldDir, target)) throw new Error('The new library folder cannot be inside the old one (or the other way round).');
@@ -580,6 +580,36 @@ app.whenReady().then(() => {
   content = new ContentService({ dataDir: app.getPath('userData'), getSettings: () => store.settings, emit: broadcast });
   registerIpc();
   createMain();
+  // The central library moved to the BeamMP Launcher's Resources folder: move anything from the
+  // old Documents\Redline Mods Library over once, then remove the old folder if it's empty.
+  if (content.isDefaultLibrary() && !store.settings.libraryMigrated) {
+    setTimeout(() => {
+      syncChain = syncChain.then(async () => {
+        const oldDir = content.legacyLibraryDir();
+        const newDir = content.centralLibraryDir();
+        const moved = [];
+        let items = [];
+        try { items = await fs.promises.readdir(oldDir); } catch { /* no old library */ }
+        for (const name of items) {
+          const from = path.join(oldDir, name);
+          const to = path.join(newDir, name);
+          if (fs.existsSync(to)) continue;
+          try {
+            try { await fs.promises.rename(from, to); } catch (e) {
+              if (e.code !== 'EXDEV') throw e;
+              await fs.promises.copyFile(from, to);
+              await fs.promises.unlink(from);
+            }
+            moved.push(name);
+          } catch (e) { console.warn('library migrate', name, e.message); }
+        }
+        try { await fs.promises.rmdir(oldDir); } catch { /* not empty or missing */ }
+        store.settings.libraryMigrated = true;
+        store.save();
+        if (moved.length) broadcast('library:sync', { added: moved, reason: 'moved', dir: newDir });
+      });
+    }, 2000);
+  }
   // First start after this update: collect mods from servers that were already added.
   if (!store.settings.librarySynced) {
     setTimeout(() => syncToLibrary(store.servers.map((s) => s.id), 'first start').then(() => {

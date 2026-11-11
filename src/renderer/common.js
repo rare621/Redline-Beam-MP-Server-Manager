@@ -250,7 +250,10 @@ api.on('maps:reconciled', (e) => {
   if (e.disabled.length) toast(`So players only download the map in use, these were switched off: ${e.disabled.join(', ')}`, 'info', 'Unused maps switched off');
   if (e.enabled.length) toast(`Switched on: ${e.enabled.join(', ')}`, 'success', 'Map mod enabled');
 });
-api.on('library:sync', (e) => toast(`${e.added.length} mod${e.added.length > 1 ? 's' : ''} copied into your central mods library`, 'success', 'Mods library updated'));
+api.on('library:sync', (e) => e.reason === 'moved'
+  ? toast(`${e.added.length} mod${e.added.length > 1 ? 's' : ''} moved from the old Redline Mods Library to ${e.dir}`, 'success', 'Mods library moved')
+  : null);
+api.on('library:sync', (e) => e.reason === 'moved' ? null : toast(`${e.added.length} mod${e.added.length > 1 ? 's' : ''} copied into your central mods library`, 'success', 'Mods library updated'));
 
 // Remove a mod from a server for good; the copy in the mods library / BeamNG mods folder stays.
 async function removeModFromServer(serverId, fileName, extra = '') {

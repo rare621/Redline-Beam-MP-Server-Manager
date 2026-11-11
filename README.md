@@ -53,9 +53,11 @@ Build the installers with `npm run dist` (output in `dist/`).
   The New Server dialog has a full map browser (BeamNG maps + your mod maps, with search and filters).
 - **Only the map in use is downloaded**: when you change maps, unused map-only mods are switched off
   automatically (moved out of `Resources/Client`) and switched back on when selected again.
-- **Central mods library** (default `Documents\Redline Mods Library`): every mod and track from your servers is
-  collected here automatically, so it's all available when you create a new server, even on a PC without BeamNG.
-  Changing its folder moves everything over.
+- **BeamMP mods**: the BeamMP Launcher's `Resources` folder (`%APPDATA%\BeamMP Launcher\Resources`, created if
+  missing) is the central mods library. It shows as its own **BeamMP mods** category in Maps, Vehicles, Mods and the
+  New Server map browser, next to your **BeamNG mods** folder (if BeamNG is installed). On a PC without BeamNG, every
+  mod and track from your servers is collected there automatically. Changing the folder in App settings moves
+  everything over.
 - **Auto-detect** (App settings) finds BeamNG via Steam libraries, BeamNG's own settings file and common folders.
 - **Remote management** (sidebar → Remote):
   - On the host PC: turn on "Allow remote control", set a password, note the `IP : port` shown.

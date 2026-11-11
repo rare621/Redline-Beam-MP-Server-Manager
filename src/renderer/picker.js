@@ -10,10 +10,11 @@ const P = {
   config: null,
   library: null,
   vehCat: 'all',
+  owner: 'all', // while remote: show mods from 'all', the 'host' PC, or this 'pc'
   q: '',
 };
 const SEG = { maps: ['map', 'Maps'], vehicles: ['car', 'Vehicles'], mods: ['box', 'Mods'] };
-const CATS = [['all', 'All', 'layers'], ['car', 'Cars', 'car'], ['truck', 'Trucks & buses', 'truck'], ['trailer', 'Trailers', 'trailer'], ['prop', 'Props', 'cone'], ['other', 'Other', 'box'], ['mod', 'Mod vehicles', 'puzzle']];
+const CATS = [['all', 'All', 'layers'], ['beammp', 'BeamMP mods', 'globe'], ['car', 'Cars', 'car'], ['truck', 'Trucks & buses', 'truck'], ['trailer', 'Trailers', 'trailer'], ['prop', 'Props', 'cone'], ['other', 'Other', 'box'], ['mod', 'Mod vehicles', 'puzzle']];
 
 $('#tbLogo').innerHTML = LOGO;
 for (const el of $$('.seg-item')) {
@@ -102,29 +103,60 @@ async function loadThisPc() {
   render();
 }
 
-// kind: 'map' | 'vehicle' | 'mod'. Returns a section listing This PC's items not yet on the server.
-function thisPcSection(kind) {
-  if (!REMOTE.connected || !P.thisPc) return '';
+// ---- mod sources: BeamMP mods (launcher Resources / central library) and BeamNG mods ----
+const SRC_LABEL = { beammp: 'BeamMP mods', beamng: 'BeamNG mods' };
+
+// Items of one kind ('map' | 'vehicle' | 'mod') from a mod list, skipping mods already on the server.
+function sourceItems(mods, kind) {
   const onServer = new Set(P.mods.map((m) => m.fileName.toLowerCase()));
-  const mods = P.thisPc.mods.filter((m) => !onServer.has(m.fileName.toLowerCase()));
-  let items;
-  if (kind === 'map') items = mods.flatMap((m) => (m.maps || []).map((x) => ({ title: x.title, thumb: x.thumb, sub: m.fileName, mod: m, mapPath: x.mapPath })));
-  else if (kind === 'vehicle') items = mods.flatMap((m) => (m.vehicles || []).map((x) => ({ title: x.name, thumb: x.thumb, sub: m.fileName, mod: m })));
-  else items = mods.map((m) => ({ title: m.title, thumb: m.thumb, sub: `${fmtBytes(m.size)}${m.kind !== 'other' ? ' · ' + m.kind : ''}`, mod: m }));
-  items = items.filter((i) => match(i.title, i.sub));
-  const title = { map: 'Mod maps on this PC', vehicle: 'Mod vehicles on this PC', mod: 'Mods on this PC' }[kind];
-  const head = `<div class="sec-title">${icon('upload')}${title} <span class="pill blue">${P.thisPc.loading ? '…' : items.length}</span><span class="faint" style="text-transform:none;letter-spacing:0;font-weight:500">uploaded to the host when added</span></div>`;
-  if (P.thisPc.loading) return head + '<div class="row faint"><div class="spinner"></div>Reading this PC\'s BeamNG mods folder…</div>';
-  if (!P.thisPc.dir) return head + '<div class="faint">No BeamNG mods folder found on this PC.</div>';
-  if (!items.length) return head + `<div class="faint">Nothing on this PC that isn't already on the server.</div>`;
+  const list = mods.filter((m) => !onServer.has(m.fileName.toLowerCase()));
+  if (kind === 'map') return list.flatMap((m) => (m.maps || []).map((x) => ({ title: x.title, thumb: x.thumb, sub: m.fileName, mod: m, mapPath: x.mapPath })));
+  if (kind === 'vehicle') return list.flatMap((m) => (m.vehicles || []).map((x) => ({ title: x.name, thumb: x.thumb, sub: m.fileName, mod: m })));
+  return list.map((m) => ({ title: m.title, thumb: m.thumb, sub: `${fmtBytes(m.size)}${m.kind !== 'other' ? ' · ' + m.kind : ''}`, mod: m }));
+}
+
+// owner 'host' = the server PC's mods (added directly); 'pc' = this PC's mods while remote (uploaded).
+// only: limit to one source ('beammp' | 'beamng').
+function sourceSections(kind, owner, only) {
+  if (REMOTE.connected && P.owner !== 'all' && P.owner !== owner) return ''; // Host PC / This PC switch
+  const data = owner === 'host' ? P.library : P.thisPc;
+  if (owner === 'pc' && (!REMOTE.connected || !data)) return '';
+  if (!data) return '';
+  const who = owner === 'pc' ? 'This PC · ' : REMOTE.connected ? "Host's " : '';
+  const kindWord = { map: 'Maps in ', vehicle: 'Vehicles in ', mod: '' }[kind];
   const small = kind === 'vehicle';
-  return head + `<div class="cgrid ${small ? 'small' : ''}">${items.map((it, i) => `
-    <div class="ccard" style="animation-delay:${Math.min(i, 24) * 18}ms">
-      ${thumbHtml(it.thumb, kind === 'map' ? 'map' : kind === 'vehicle' ? 'car' : 'box')}
-      <div class="tag"><span class="pill blue">This PC</span></div>
-      <div class="meta row"><div class="grow"><div class="t ellipsis">${esc(it.title)}</div><div class="s ellipsis">${esc(it.sub)}</div></div>
-        <button class="btn sm primary" data-pcup="${esc(it.mod.file)}" ${it.mapPath ? `data-pcmap="${esc(it.mapPath)}"` : ''} title="Upload to the host server">${icon('upload')}${small ? '' : kind === 'map' ? 'Upload & use' : 'Upload'}</button></div>
-    </div>`).join('')}</div>`;
+  let html = '';
+  for (const src of ['beammp', 'beamng']) {
+    if (only && only !== src) continue;
+    if (src === 'beamng' && !data.loading && !data.beamngDir) continue; // no BeamNG on that PC
+    const items = data.loading ? [] : sourceItems((data.mods || []).filter((m) => m.source === src), kind).filter((i) => match(i.title, i.sub));
+    const where = src === 'beammp' ? (data.centralIsLauncher === false ? 'your mods library folder' : 'BeamMP Launcher \\ Resources') : 'BeamNG mods folder';
+    html += `<div class="sec-title">${icon(owner === 'pc' ? 'upload' : src === 'beammp' ? 'layers' : 'download')}${kindWord}${who}${SRC_LABEL[src]}
+      <span class="pill ${owner === 'pc' ? 'blue' : src === 'beammp' ? 'accent' : ''}">${data.loading ? '…' : items.length}</span>
+      <span class="faint" style="text-transform:none;letter-spacing:0;font-weight:500">${where}${owner === 'pc' ? ' · uploaded to the host when added' : ''}</span></div>`;
+    if (data.loading) { html += libLoadingRow(); continue; }
+    if (!items.length) { html += `<div class="faint" style="margin-bottom:8px">Nothing here that isn't already on the server.</div>`; continue; }
+    const action = owner === 'pc' ? 'data-pcup' : 'data-libadd';
+    const verb = owner === 'pc' ? (kind === 'map' ? 'Upload & use' : 'Upload') : (kind === 'map' ? 'Add & use' : 'Add');
+    html += `<div class="cgrid ${small ? 'small' : ''}">${items.map((it, i) => `
+      <div class="ccard" style="animation-delay:${Math.min(i, 24) * 18}ms">
+        ${thumbHtml(it.thumb, kind === 'map' ? 'map' : kind === 'vehicle' ? 'car' : 'box')}
+        <div class="tag"><span class="pill ${src === 'beammp' ? 'accent' : 'blue'}">${owner === 'pc' ? 'This PC · ' : ''}${src === 'beammp' ? 'BeamMP' : 'BeamNG'}</span></div>
+        <div class="meta row"><div class="grow"><div class="t ellipsis">${esc(it.title)}</div><div class="s ellipsis">${esc(it.sub)}</div></div>
+          <button class="btn sm primary" ${action}="${esc(it.mod.file)}" ${it.mapPath ? `data-mappath="${esc(it.mapPath)}"` : ''} title="${owner === 'pc' ? 'Upload to the host server' : 'Add to this server'}">${icon(owner === 'pc' ? 'upload' : 'plus')}${small ? '' : verb}</button></div>
+      </div>`).join('')}</div>`;
+  }
+  return html;
+}
+
+function bindSources(root) {
+  for (const b of $$('[data-libadd]', root)) {
+    b.onclick = async (e) => {
+      e.stopPropagation();
+      if (await addLibraryMod(b.dataset.libadd, b) && b.dataset.mappath) setMap(b.dataset.mappath);
+    };
+  }
+  bindThisPc(root);
 }
 
 function bindThisPc(root) {
@@ -136,7 +168,7 @@ function bindThisPc(root) {
       const r = await guard(() => api.call('mods:add', P.server, [b.dataset.pcup]));
       if (r?.added?.length) toast(`Uploaded ${r.added[0]} to the host${r.restartNeeded ? ' · restart the server to apply' : ''}`, 'success');
       await reloadServerData();
-      if (r && b.dataset.pcmap) setMap(b.dataset.pcmap);
+      if (r && b.dataset.mappath) setMap(b.dataset.mappath);
     };
   }
 }
@@ -211,20 +243,9 @@ function renderMaps(body, { modMaps, libMaps }) {
     <div class="sec-title">${icon('puzzle')}Mod maps on this server <span class="pill">${mods.length}</span></div>
     ${mods.length ? `<div class="cgrid">${mods.map((m, i) => card(m, i, m.mod)).join('')}</div>`
       : `<div class="empty" style="padding:24px">${icon('map')}<div>No mod maps on this server yet. Pick one from your BeamNG mods below, click "Add map (.zip)", or drop a map mod here.</div></div>`}
-    ${libSection(REMOTE.connected ? "Mod maps in the host's library" : 'Mod maps in your mods library', 'download', libMaps.filter((m) => match(m.title, m.id, m.lib.fileName)).length)}
-    ${P.library?.loading ? libLoadingRow() : !P.library?.dir ? `<div class="faint">Your BeamNG mods folder wasn't found. Use Auto-detect in App settings.</div>`
-      : (() => {
-        const lm = libMaps.filter((m) => match(m.title, m.id, m.lib.fileName));
-        return lm.length ? `<div class="cgrid">${lm.map((m, i) => `
-          <div class="ccard" data-libmap="${esc(m.lib.file)}" data-mappath="${esc(m.mapPath)}" style="animation-delay:${Math.min(i, 24) * 22}ms">
-            ${thumbHtml(m.thumb, 'map')}
-            <div class="tag"><span class="pill blue">Your mod</span></div>
-            <div class="meta row"><div class="grow"><div class="t ellipsis">${esc(m.title)}</div><div class="s ellipsis">${esc(m.lib.fileName)} · ${fmtBytes(m.lib.size)}</div></div>
-              <button class="btn sm primary">${icon('plus')}Add & use</button></div>
-          </div>`).join('')}</div>` : `<div class="faint">No other map mods in your library. Drop downloaded tracks into the library folder to see them here.</div>`;
-      })()}`;
-  body.insertAdjacentHTML('beforeend', thisPcSection('map'));
-  bindThisPc(body);
+    ${sourceSections('map', 'host')}
+    ${sourceSections('map', 'pc')}`;
+  bindSources(body);
   $('#foot').innerHTML = `<span class="faint">Current map:</span><span class="foot-stat">${esc(cur ? cur.title : P.config?.General?.Map || 'none')}</span>
     ${cur ? '' : `<span class="pill crashed">${icon('alert')}Not found on this PC or in server mods</span>`}
     <div class="grow"></div><span class="saved-ind" id="savedInd">${icon('check')}Saved</span>
@@ -240,11 +261,6 @@ function renderMaps(body, { modMaps, libMaps }) {
       if (e.target.closest('[data-rmmod]')) return;
       // The host switches the chosen map's mod on and unused map mods off automatically.
       setMap(c.dataset.map);
-    };
-  }
-  for (const c of $$('[data-libmap]', body)) {
-    c.onclick = async () => {
-      if (await addLibraryMod(c.dataset.libmap, $('button', c))) setMap(c.dataset.mappath);
     };
   }
   bindRemoveMod(body);
@@ -283,13 +299,19 @@ function renderVehicles(body, { modVeh, libVeh }) {
   const inCat = (v) => P.vehCat === 'all' || v.category === P.vehCat;
   const shown = all.filter((v) => inCat(v) && match(v.name, v.model, v.brand, v.mod?.fileName || ''));
   const counts = Object.fromEntries(CATS.map(([k]) => [k, all.filter((v) => k === 'all' || v.category === k).length]));
-  counts.mod += libVeh.length;
+  const srcCount = (src) => ['host', 'pc'].reduce((n, owner) => {
+    const data = owner === 'host' ? P.library : (REMOTE.connected ? P.thisPc : null);
+    if (!data || data.loading || (REMOTE.connected && P.owner !== 'all' && P.owner !== owner)) return n;
+    return n + sourceItems((data.mods || []).filter((m) => m.source === src), 'vehicle').length;
+  }, 0);
+  counts.beammp = srcCount('beammp');
+  counts.mod += srcCount('beamng');
   $('#sub').innerHTML = `
-    <div class="chips">${CATS.filter(([k]) => counts[k] || k === 'mod').map(([k, label, ic]) => `<span class="chip ${P.vehCat === k ? 'on' : ''}" data-cat="${k}">${icon(ic)}${label}<span class="n">${counts[k]}</span></span>`).join('')}</div>
+    <div class="chips">${CATS.filter(([k]) => counts[k] || k === 'mod' || k === 'beammp').map(([k, label, ic]) => `<span class="chip ${P.vehCat === k ? 'on' : ''}" data-cat="${k}">${icon(ic)}${label}<span class="n">${counts[k]}</span></span>`).join('')}</div>
     <div class="grow"></div>
-    <button class="btn sm" id="vOn">${icon('check')}All shown on</button>
+    ${P.vehCat === 'beammp' ? '' : `<button class="btn sm" id="vOn">${icon('check')}All shown on</button>
     <button class="btn sm" id="vOff">${icon('x')}All shown off</button>
-    <button class="btn sm ghost" id="vReset">${icon('refresh')}Reset</button>
+    <button class="btn sm ghost" id="vReset">${icon('refresh')}Reset</button>`}
     <button class="btn primary sm" id="vAdd">${icon('plus')}Add vehicle (.zip)</button>`;
   const card = (v, i) => {
     const on = !P.blocked.has(v.model);
@@ -301,25 +323,16 @@ function renderVehicles(body, { modVeh, libVeh }) {
       <div class="meta"><div class="t ellipsis">${esc(v.name)}</div><div class="s ellipsis">${esc(v.model)}${v.type ? ' · ' + esc(v.type) : ''}${v.mod ? ' · ' + esc(v.mod.fileName) : ''}</div></div>
     </div>`;
   };
-  body.innerHTML = `${fallbackNotice()}
-    <div class="notice">${icon('info')}<div>Every stock vehicle is <b>on</b> by default. Click a vehicle to switch it off; players can't spawn vehicles that are off. Changes save automatically and apply instantly, even while the server is running.</div></div>
+  const onlyMp = P.vehCat === 'beammp';
+  // Sections from mod folders: BeamMP mods under "All" and the BeamMP chip; BeamNG mods under "All" and "Mod vehicles".
+  const srcFilter = P.vehCat === 'all' ? null : onlyMp ? 'beammp' : P.vehCat === 'mod' ? 'beamng' : 'none';
+  body.innerHTML = `${onlyMp ? '' : fallbackNotice()}
+    ${onlyMp ? `<div class="notice">${icon('info')}<div>Vehicles from <b>BeamMP mods</b>: the BeamMP Launcher's Resources folder, where multiplayer mods are kept. Add one to put it on this server.</div></div>`
+      : `<div class="notice">${icon('info')}<div>Every stock vehicle is <b>on</b> by default. Click a vehicle to switch it off; players can't spawn vehicles that are off. Changes save automatically and apply instantly, even while the server is running.</div></div>
     ${shown.length ? `<div class="cgrid small">${shown.map(card).join('')}</div>`
-      : `<div class="empty">${icon('car')}<div>${P.vehCat === 'mod' && !P.q ? 'No mod vehicles on this server yet. Add one from your BeamNG mods below, or drop a .zip here.' : 'No vehicles match'}</div></div>`}
-    ${P.vehCat === 'all' || P.vehCat === 'mod' ? `
-      ${libSection(REMOTE.connected ? "Mod vehicles in the host's library" : 'Mod vehicles in your mods library', 'download', libVeh.filter((v) => match(v.name, v.model, v.lib.fileName)).length)}
-      ${P.library?.loading ? libLoadingRow() : !P.library?.dir ? `<div class="faint">Your BeamNG mods folder wasn't found. Use Auto-detect in App settings.</div>`
-        : (() => {
-          const lv = libVeh.filter((v) => match(v.name, v.model, v.lib.fileName));
-          return lv.length ? `<div class="cgrid small">${lv.map((v, i) => `
-            <div class="ccard" style="animation-delay:${Math.min(i, 30) * 15}ms">
-              ${thumbHtml(v.thumb, 'car')}
-              <div class="tag"><span class="pill accent">Your mod</span></div>
-              <div class="meta row"><div class="grow"><div class="t ellipsis">${esc(v.name)}</div><div class="s ellipsis">${esc(v.lib.fileName)}</div></div>
-                <button class="btn sm primary" data-addlibveh="${esc(v.lib.file)}" title="Add to server">${icon('plus')}</button></div>
-            </div>`).join('')}</div>` : `<div class="faint">No other vehicle mods in your library.</div>`;
-        })()}` : ''}`;
-  for (const b of $$('[data-addlibveh]', body)) b.onclick = () => addLibraryMod(b.dataset.addlibveh, b);
-  if (P.vehCat === 'all' || P.vehCat === 'mod') { body.insertAdjacentHTML('beforeend', thisPcSection('vehicle')); bindThisPc(body); }
+      : `<div class="empty">${icon('car')}<div>${P.vehCat === 'mod' && !P.q ? 'No mod vehicles on this server yet. Add one from the sections below, or drop a .zip here.' : 'No vehicles match'}</div></div>`}`}
+    ${srcFilter === 'none' ? '' : sourceSections('vehicle', 'host', srcFilter || undefined) + sourceSections('vehicle', 'pc', srcFilter || undefined)}`;
+  bindSources(body);
   const updateFoot = () => {
     const allowed = all.filter((v) => !P.blocked.has(v.model)).length;
     $('#foot').innerHTML = `<span class="foot-stat"><b>${allowed}</b> of ${all.length} vehicles allowed</span><span class="faint">${P.blocked.size ? `${P.blocked.size} switched off` : 'Everything is allowed'}</span><div class="grow"></div><span class="saved-ind" id="savedInd">${icon('check')}Saved</span>`;
@@ -342,9 +355,9 @@ function renderVehicles(body, { modVeh, libVeh }) {
     for (const v of shown) { if (on) P.blocked.delete(v.model); else P.blocked.add(v.model); }
     render(); saveBlocked();
   };
-  $('#vOn').onclick = () => setShown(true);
-  $('#vOff').onclick = () => setShown(false);
-  $('#vReset').onclick = async () => {
+  if ($('#vOn')) $('#vOn').onclick = () => setShown(true);
+  if ($('#vOff')) $('#vOff').onclick = () => setShown(false);
+  if ($('#vReset')) $('#vReset').onclick = async () => {
     if (!(await confirmBox('Reset vehicles?', 'Switch every vehicle back on?', { ok: 'Reset' }))) return;
     P.blocked.clear(); render(); saveBlocked();
   };
@@ -359,12 +372,11 @@ function renderModsTab(body) {
   const kindCls = { map: 'blue', vehicle: 'accent', mixed: 'accent', other: '' };
   const desc = (m) => [m.vehicles?.length ? `${m.vehicles.length} vehicle${m.vehicles.length > 1 ? 's' : ''}` : '', m.maps?.length ? `${m.maps.length} map${m.maps.length > 1 ? 's' : ''}` : '', fmtBytes(m.size)].filter(Boolean).join(' · ');
   const serverMods = P.mods.filter((m) => match(m.title, m.fileName));
-  const lib = (P.library?.mods || []).filter((m) => match(m.title, m.fileName));
   $('#sub').innerHTML = `
     <button class="btn primary sm" id="mAdd">${icon('plus')}Add .zip files</button>
     <span class="faint" style="font-size:12px;margin-left:6px">Or drag & drop mod zips anywhere in this window.</span>
     <div class="grow"></div>
-    ${P.library?.dir ? `<button class="btn sm ghost" id="libOpen">${icon('folder')}Open mods library</button>` : ''}`;
+    ${P.library?.dir && !REMOTE.connected ? `<button class="btn sm ghost" id="libOpen">${icon('folder')}Open BeamMP mods folder</button>` : ''}`;
   body.innerHTML = `
     ${serverObj()?.status === 'running' ? `<div class="notice warn">${icon('info')}<div>The server is running. Mod changes apply after a restart.</div></div>` : ''}
     <div class="sec-title">${icon('server')}On this server <span class="pill">${serverMods.length}</span></div>
@@ -377,18 +389,8 @@ function renderModsTab(body) {
           <label class="switch" title="Enable / disable"><input type="checkbox" data-en="${esc(m.fileName)}" ${m.enabled ? 'checked' : ''}><span class="track"></span></label></div>
       </div>`).join('')}</div>`
       : `<div class="empty" style="padding:24px">${icon('box')}<div>No mods on this server yet.</div></div>`}
-    <div class="sec-title">${icon('download')}${REMOTE.connected ? "Host's mods library" : 'Your mods library'} <span class="pill">${P.library?.loading ? '…' : lib.length}</span></div>
-    ${P.library?.loading ? '<div class="row faint"><div class="spinner"></div><span id="libLabel">Reading your mods library… (first time can take a minute, photos are cached after)</span></div>'
-      : !P.library?.dir ? `<div class="empty" style="padding:24px">${icon('folder')}<div>Your BeamNG mods folder was not found. Set it in App settings in the main window.</div></div>`
-      : lib.length ? `<div class="cgrid">${lib.map((m, i) => {
-        const has = onServer.has(m.fileName.toLowerCase());
-        return `<div class="ccard" style="animation-delay:${Math.min(i, 24) * 22}ms">
-          ${thumbHtml(m.thumb, m.kind === 'map' ? 'map' : m.kind === 'vehicle' ? 'car' : 'box')}
-          <div class="tag"><span class="pill ${kindCls[m.kind] || ''}">${kindLabel[m.kind] || 'Mod'}</span></div>
-          <div class="meta row"><div class="grow"><div class="t ellipsis">${esc(m.title)}</div><div class="s ellipsis">${esc(desc(m))}</div></div>
-          ${has ? `<span class="pill running">${icon('check')}Added</span>` : `<button class="btn sm primary" data-addlib="${esc(m.file)}">${icon('plus')}Add</button>`}</div>
-        </div>`;
-      }).join('')}</div>` : `<div class="empty" style="padding:24px">${icon('box')}<div>No mod zips in ${esc(P.library.dir)}</div></div>`}`;
+    ${sourceSections('mod', 'host')}
+    ${sourceSections('mod', 'pc')}`;
   const enabled = P.mods.filter((m) => m.enabled);
   $('#foot').innerHTML = `<span class="foot-stat"><b>${enabled.length}</b> enabled mod${enabled.length === 1 ? '' : 's'}</span><span class="faint">${fmtBytes(enabled.reduce((a, b) => a + b.size, 0))} for players to download</span>`;
 
@@ -401,9 +403,7 @@ function renderModsTab(body) {
     m.enabled = t.checked;
     t.closest('.ccard').classList.toggle('disabled-mod', !t.checked);
   };
-  for (const b of $$('[data-addlib]', body)) b.onclick = () => addLibraryMod(b.dataset.addlib, b);
-  body.insertAdjacentHTML('beforeend', thisPcSection('mod'));
-  bindThisPc(body);
+  bindSources(body);
   bindRemoveMod(body);
 }
 
@@ -434,6 +434,15 @@ async function addModFiles(files) {
 }
 
 enableFileDrop((paths) => addModFiles(paths), 'Drop .zip mods to add them to the server');
+
+// While remote: switch between mods on the host PC, this PC, or both.
+remoteReady.then(() => {
+  if (!REMOTE.connected) return;
+  const seg = h(`<div class="chips owner-switch">${[['all', 'All', 'layers'], ['host', 'Host PC', 'server'], ['pc', 'This PC', 'upload']]
+    .map(([k, label, ic]) => `<span class="chip ${P.owner === k ? 'on' : ''}" data-owner="${k}" title="${k === 'host' ? `Mods on ${esc(REMOTE.hostName || REMOTE.host)}` : k === 'pc' ? 'Mods on this computer (uploaded when added)' : 'Mods on both computers'}">${icon(ic)}${label}</span>`).join('')}</div>`);
+  $('#q').closest('.search').after(seg);
+  for (const c of $$('[data-owner]', seg)) c.onclick = () => { P.owner = c.dataset.owner; $$('[data-owner]', seg).forEach((x) => x.classList.toggle('on', x === c)); render(); };
+});
 
 setTab(P.tab);
 load();

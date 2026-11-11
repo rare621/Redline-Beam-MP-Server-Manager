@@ -1044,7 +1044,7 @@ async function appSettingsDialog() {
       <div class="toggle-row"><div><div class="t-title">Auto-detect BeamNG</div><div class="t-sub">Finds the game through Steam libraries, BeamNG's own settings file and common folders</div></div><button class="btn sm primary" id="sDetect">${icon('search')}Auto-detect</button></div>
       ${folderField('sGame', 'BeamNG.drive install folder', settings.beamngPath, det(gameDir, 'Set it to show stock maps and vehicles with photos.'))}
       ${folderField('sMods', 'Your BeamNG mods folder', settings.modsPath, det(modsDir, 'Fine if BeamNG isn\'t installed here: the central mods library below is used instead.'))}
-      ${folderField('sLib', `Central mods library${gameDir ? '' : ' <span class="pill accent" style="height:20px;font-size:11px">used because BeamNG isn\'t installed</span>'}`, settings.libraryPath, `Currently: ${esc(libDir)}`)}
+      ${folderField('sLib', `BeamMP mods folder (central library)${gameDir ? '' : ' <span class="pill accent" style="height:20px;font-size:11px">used because BeamNG isn\'t installed</span>'}`, settings.libraryPath, `Currently: ${esc(libDir)}`)}
       <div class="field"><label>Collect server mods into the library</label>
         <select class="input" id="sCollectMode">
           <option value="auto" ${(settings.libraryCollect || 'auto') === 'auto' ? 'selected' : ''}>Only when BeamNG isn't installed on this PC${gameDir ? ' (BeamNG found, so off)' : ' (BeamNG not found, so on)'}</option>
@@ -1101,7 +1101,7 @@ async function appSettingsDialog() {
   if (newLib !== (settings.libraryPath || '') && norm(newLib) !== norm(libDir)) {
     const count = await api.call('library:count', libDir);
     const ok = await confirmBox('Move mods library?',
-      `${count} item${count === 1 ? '' : 's'} will be moved from\n${libDir}\nto\n${newLib || 'the default folder (Documents\\Redline Mods Library)'}\n\nThe old folder is deleted once everything has moved.`, { ok: 'Move library' });
+      `${count} item${count === 1 ? '' : 's'} will be moved from\n${libDir}\nto\n${newLib || 'the BeamMP Launcher Resources folder (default)'}\n\nThe old folder is deleted once everything has moved.`, { ok: 'Move library' });
     if (ok) {
       toast('Moving your mods library…', 'info');
       const m = await guard(() => api.call('library:move', newLib));
@@ -1134,19 +1134,23 @@ async function pickMapModal(currentPath, serverId) {
     actions: [{ label: 'Cancel', value: null }],
     onMount: (b, close) => {
       const draw = () => {
-        const counts = { all: items.length, stock: items.filter((i) => i.source === 'stock').length, mods: items.filter((i) => i.source !== 'stock' && i.source !== 'thispc').length, thispc: items.filter((i) => i.source === 'thispc').length };
-        const chips = [['all', 'All', 'layers'], ['stock', 'BeamNG', 'map'], ['mods', REMOTE.connected ? "Host's mod maps" : 'Mod maps', 'puzzle']];
+        // Filters: stock maps, maps already on the server, BeamMP mods, BeamNG mods, and (remote) this PC.
+        const group = (i) => (i.source === 'library' ? i.lib : i.source);
+        const n = (k) => (k === 'all' ? items.length : items.filter((i) => group(i) === k).length);
+        const chips = [['all', 'All', 'layers'], ['stock', 'BeamNG maps', 'map']];
+        if (items.some((i) => i.source === 'server')) chips.push(['server', 'On this server', 'server']);
+        chips.push(['beammp', `${REMOTE.connected ? "Host's " : ''}BeamMP mods`, 'globe'], ['beamng', `${REMOTE.connected ? "Host's " : ''}BeamNG mods`, 'puzzle']);
         if (REMOTE.connected) chips.push(['thispc', 'This PC', 'upload']);
         $('#mpChips', b).innerHTML = chips
-          .map(([k, l, ic]) => `<span class="chip ${filter === k ? 'on' : ''}" data-f="${k}">${icon(ic)}${l} <span class="faint">${counts[k]}${k !== 'stock' && libLoading ? '…' : ''}</span></span>`).join('');
+          .map(([k, l, ic]) => `<span class="chip ${filter === k ? 'on' : ''}" data-f="${k}">${icon(ic)}${l} <span class="faint">${n(k)}${k !== 'stock' && k !== 'server' && libLoading ? '…' : ''}</span></span>`).join('');
         for (const c of $$('[data-f]', b)) c.onclick = () => { filter = c.dataset.f; draw(); };
-        const inFilter = (m) => filter === 'all' || (filter === 'stock' ? m.source === 'stock' : filter === 'thispc' ? m.source === 'thispc' : m.source !== 'stock' && m.source !== 'thispc');
+        const inFilter = (m) => filter === 'all' || group(m) === filter;
         const shown = items.filter((m) => inFilter(m)
           && (!q || `${m.title} ${m.id} ${m.modFile || ''}`.toLowerCase().includes(q)));
         $('#mpGrid', b).innerHTML = shown.map((m, i) => `
           <div class="mp-card ${m.mapPath.toLowerCase() === cur ? 'sel' : ''}" data-i="${items.indexOf(m)}" style="animation-delay:${Math.min(i, 20) * 18}ms">
             ${thumbHtml(m.thumb, 'map')}
-            <div class="tag">${m.source === 'stock' ? '<span class="pill">BeamNG</span>' : `<span class="pill blue">${{ server: 'On server', thispc: 'This PC · uploads' }[m.source] || (REMOTE.connected ? "Host's mod" : 'Your mod')}</span>`}</div>
+            <div class="tag">${m.source === 'stock' ? '<span class="pill">BeamNG</span>' : `<span class="pill ${m.lib === 'beammp' ? 'accent' : 'blue'}">${{ server: 'On server', thispc: 'This PC · uploads' }[m.source] || (m.lib === 'beammp' ? 'BeamMP mod' : 'BeamNG mod')}</span>`}</div>
             <div class="n ellipsis">${esc(m.title)}</div><div class="s ellipsis">${m.source === 'stock' ? esc(m.id) : esc(m.modFile.split(/[\\/]/).pop())}</div>
           </div>`).join('')
           + (libLoading && filter !== 'stock' ? `<div class="row faint" style="grid-column:1/-1;padding:10px"><div class="spinner"></div>Loading mod maps from your mods library…</div>` : '')
@@ -1162,7 +1166,7 @@ async function pickMapModal(currentPath, serverId) {
           for (const m of mods) for (const mp of m.maps || []) if (!seen.has(mp.mapPath.toLowerCase())) { seen.add(mp.mapPath.toLowerCase()); items.push({ ...mp, source: 'server', modFile: m.file }); }
         }
         const lib = await api.call('mods:library').catch(() => ({ mods: [] }));
-        for (const m of lib.mods) for (const mp of m.maps || []) if (!seen.has(mp.mapPath.toLowerCase())) { seen.add(mp.mapPath.toLowerCase()); items.push({ ...mp, source: 'library', modFile: m.file }); }
+        for (const m of lib.mods) for (const mp of m.maps || []) if (!seen.has(mp.mapPath.toLowerCase())) { seen.add(mp.mapPath.toLowerCase()); items.push({ ...mp, source: 'library', lib: m.source || 'beammp', modFile: m.file }); }
         if (REMOTE.connected) {
           const pc = await api.call('local:library').catch(() => ({ mods: [] }));
           for (const m of pc.mods) for (const mp of m.maps || []) if (!seen.has(mp.mapPath.toLowerCase())) { seen.add(mp.mapPath.toLowerCase()); items.push({ ...mp, source: 'thispc', modFile: m.file }); }

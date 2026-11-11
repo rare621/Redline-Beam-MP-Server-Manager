@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Redline</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data: http:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="ambient"></div>
+  <div class="titlebar"><span id="tbLogo"></span><div class="app-name">Redline <span>· BeamMP Server Manager</span></div></div>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="sb-head"><h4>Servers</h4><span class="pill" id="runCount">0 running</span></div>
+      <div class="sb-actions">
+        <button class="btn primary sm" id="btnNew"></button>
+        <button class="btn sm" id="btnImport"></button>
+      </div>
+      <div class="sb-list" id="serverList"></div>
+      <div class="sb-foot">
+        <button class="btn ghost sm grow" id="btnSettings"></button>
+        <button class="btn ghost sm" id="btnRemote" title="Remote management"></button>
+        <button class="btn ghost sm icon" id="btnKeymaster" title="Get an AuthKey (keymaster.beammp.com)"></button>
+      </div>
+    </aside>
+    <main id="main"></main>
+  </div>
+  <script src="common.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="rl-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#23262f"/>
+      <stop offset="1" stop-color="#0b0c10"/>
+    </linearGradient>
+    <linearGradient id="rl-arc" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffb347"/>
+      <stop offset="0.6" stop-color="#ff6a1a"/>
+      <stop offset="1" stop-color="#ff2d55"/>
+    </linearGradient>
+    <radialGradient id="rl-glow" cx="0.72" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ff2d55" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ff2d55" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="rl-clip"><rect x="2" y="2" width="60" height="60" rx="16"/></clipPath>
+    <filter id="rl-blur" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.4"/></filter>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#rl-bg)"/>
+  <rect x="2.5" y="2.5" width="59" height="59" rx="15.5" fill="none" stroke="#ffffff" stroke-opacity="0.09"/>
+  <circle cx="44" cy="30" r="20" fill="url(#rl-glow)" clip-path="url(#rl-clip)"/>
+  <path d="M15.4 45 A19 19 0 1 1 48.6 45" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="5" stroke-linecap="round"/>
+  <path d="M15.4 45 A19 19 0 0 1 48.45 26.5" fill="none" stroke="url(#rl-arc)" stroke-width="5" stroke-linecap="round"/>
+  <path d="M48.45 26.5 A19 19 0 0 1 48.6 45" fill="none" stroke="#ff2d55" stroke-width="5" stroke-linecap="round"/>
+  <line x1="32" y1="36.5" x2="47" y2="29.5" stroke="#ff2d55" stroke-width="4" stroke-linecap="round" filter="url(#rl-blur)" opacity="0.9"/>
+  <line x1="32" y1="36.5" x2="47" y2="29.5" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>
+  <circle cx="32" cy="36.5" r="4.2" fill="#0b0c10" stroke="#ffffff" stroke-width="2.2"/>
+  <circle cx="32" cy="36.5" r="1.4" fill="#ff2d55"/>
+</svg>

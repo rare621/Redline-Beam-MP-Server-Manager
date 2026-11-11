@@ -1,0 +1,57 @@
+{
+  "name": "beammp-server-manager",
+  "productName": "Redline",
+  "version": "1.0.0",
+  "description": "Redline - a modern BeamMP server manager",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis portable"
+  },
+  "dependencies": {
+    "yauzl": "^3.2.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "author": "Redline",
+  "build": {
+    "appId": "local.redline.beammp",
+    "productName": "Redline",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "src/main/plugin/**"
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Redline",
+      "artifactName": "Redline-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "Redline-Portable-${version}.exe"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rare621/Redline-Beam-MP-Server-Manager.git"
+  },
+  "homepage": "https://github.com/rare621/Redline-Beam-MP-Server-Manager"
+}

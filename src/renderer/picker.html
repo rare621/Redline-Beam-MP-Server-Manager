@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Content Browser · Redline</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' file: data: http:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self'">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="picker.css">
+</head>
+<body>
+  <div class="ambient"></div>
+  <div class="titlebar"><span id="tbLogo"></span><div class="app-name">Content Browser <span id="tbServer"></span></div></div>
+  <div class="pk-head">
+    <div class="seg" id="seg">
+      <div class="seg-item" data-tab="maps"></div>
+      <div class="seg-item" data-tab="vehicles"></div>
+      <div class="seg-item" data-tab="mods"></div>
+      <div class="seg-ink" id="segInk"></div>
+    </div>
+    <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input class="input" id="q" placeholder="Search…"></div>
+    <div class="grow"></div>
+    <select class="input" id="serverSel" style="width:220px"></select>
+  </div>
+  <div class="pk-sub" id="sub"></div>
+  <div class="pk-body" id="body"></div>
+  <div class="pk-foot" id="foot"></div>
+  <script src="common.js"></script>
+  <script src="picker.js"></script>
+</body>
+</html>

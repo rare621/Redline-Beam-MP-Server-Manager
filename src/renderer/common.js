@@ -210,15 +210,28 @@ const remoteReady = (async () => {
   $('button', badge).onclick = () => api.call('remote:disconnect');
   bar.appendChild(badge);
 })();
+// Background notices (not caused by a click in this window) only show in the window in focus,
+// or in the main window when Redline isn't in focus, so they don't appear in every window.
+const IS_MAIN_WINDOW = /index\.html$/i.test(location.pathname);
+async function showHere() {
+  const f = await api.call('ui:focusState').catch(() => ({ self: true, any: true }));
+  return f.self || (!f.any && IS_MAIN_WINDOW);
+}
+async function toastHere(...args) { if (await showHere()) toast(...args); }
+
 api.on('remote:state', (st) => {
-  if (st.reconnecting) toast('Lost connection to the host, reconnecting…', 'error');
-  else if (st.connected) toast('Reconnected to the host', 'success');
-  else if (st.reason) toast(st.reason, 'error', 'Disconnected');
+  if (st.reconnecting) toastHere('Lost connection to the host, reconnecting…', 'error');
+  else if (st.connected) toastHere('Reconnected to the host', 'success');
+  else if (st.reason) toastHere(st.reason, 'error', 'Disconnected');
   $('#remoteBadge')?.classList.toggle('lost', !!st.reconnecting);
 });
-// Upload progress card (remote PC → host).
-api.on('remote:upload', (u) => {
+// Upload progress card (remote PC → host): shown in the window that was in focus when it started.
+const uploadsElsewhere = new Set();
+api.on('remote:upload', async (u) => {
+  if (uploadsElsewhere.has(u.id)) return;
   let card = document.getElementById('up-' + u.id);
+  if (!card && !(await showHere())) { uploadsElsewhere.add(u.id); return; }
+  card = document.getElementById('up-' + u.id);
   if (!card) {
     card = h(`<div class="upload-card" id="up-${u.id}"><div class="row"><div class="up-ic">${icon('upload')}</div>
       <div class="grow"><div class="up-title">Uploading to host</div><div class="up-file ellipsis"></div></div><div class="up-pct"></div></div>
@@ -247,17 +260,16 @@ api.on('remote:upload', (u) => {
   }
 });
 api.on('vehicles:reconciled', (e) => {
-  if (e.disabled.length) toast(`All their vehicles are switched off, so players won't download them: ${e.disabled.join(', ')}`, 'info', 'Mods switched off');
-  if (e.enabled.length) toast(`A vehicle was switched back on, so this mod is downloaded again: ${e.enabled.join(', ')}`, 'success', 'Mod switched on');
+  if (e.disabled.length) toastHere(`All their vehicles are switched off, so players won't download them: ${e.disabled.join(', ')}`, 'info', 'Mods switched off');
+  if (e.enabled.length) toastHere(`A vehicle was switched back on, so this mod is downloaded again: ${e.enabled.join(', ')}`, 'success', 'Mod switched on');
 });
 api.on('maps:reconciled', (e) => {
-  if (e.disabled.length) toast(`So players only download the map in use, these were switched off: ${e.disabled.join(', ')}`, 'info', 'Unused maps switched off');
-  if (e.enabled.length) toast(`Switched on: ${e.enabled.join(', ')}`, 'success', 'Map mod enabled');
+  if (e.disabled.length) toastHere(`So players only download the map in use, these were switched off: ${e.disabled.join(', ')}`, 'info', 'Unused maps switched off');
+  if (e.enabled.length) toastHere(`Switched on: ${e.enabled.join(', ')}`, 'success', 'Map mod enabled');
 });
-api.on('library:sync', (e) => e.reason === 'moved'
-  ? toast(`${e.added.length} mod${e.added.length > 1 ? 's' : ''} moved from the old Redline Mods Library to ${e.dir}`, 'success', 'Mods library moved')
-  : null);
-api.on('library:sync', (e) => e.reason === 'moved' ? null : toast(`${e.added.length} mod${e.added.length > 1 ? 's' : ''} copied into your central mods library`, 'success', 'Mods library updated'));
+api.on('library:sync', (e) => (e.reason === 'moved'
+  ? toastHere(`${e.added.length} mod${e.added.length > 1 ? 's' : ''} moved from the old Redline Mods Library to ${e.dir}`, 'success', 'Mods library moved')
+  : toastHere(`${e.added.length} mod${e.added.length > 1 ? 's' : ''} copied into your central mods library`, 'success', 'Mods library updated')));
 
 // Remove a mod from a server for good; the copy in the mods library / BeamNG mods folder stays.
 async function removeModFromServer(serverId, fileName, extra = '') {

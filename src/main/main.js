@@ -360,6 +360,12 @@ async function listHostFolders(dir) {
 }
 
 function registerIpc() {
+  // Lets a window ask whether it is the one in focus, so background notices only show there.
+  ipcMain.handle('ui:focusState', (e) => {
+    const self = BrowserWindow.fromWebContents(e.sender);
+    const focused = BrowserWindow.getFocusedWindow();
+    return { ok: true, data: { self: !!self && focused === self, any: !!focused } };
+  });
   const win = () => BrowserWindow.getFocusedWindow() || mainWin;
 
   handle('servers:list', () => servers.list());

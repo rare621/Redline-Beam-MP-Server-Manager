@@ -14,7 +14,7 @@ const P = {
   q: '',
 };
 const SEG = { maps: ['map', 'Maps'], vehicles: ['car', 'Vehicles'], mods: ['box', 'Mods'] };
-const CATS = [['all', 'All', 'layers'], ['beammp', 'BeamMP mods', 'globe'], ['car', 'Cars', 'car'], ['truck', 'Trucks & buses', 'truck'], ['trailer', 'Trailers', 'trailer'], ['prop', 'Props', 'cone'], ['other', 'Other', 'box'], ['mod', 'Mod vehicles', 'puzzle']];
+const CATS = [['all', 'All', 'layers'], ['onserver', 'On server', 'check'], ['beammp', 'BeamMP mods', 'globe'], ['car', 'Cars', 'car'], ['truck', 'Trucks & buses', 'truck'], ['trailer', 'Trailers', 'trailer'], ['prop', 'Props', 'cone'], ['other', 'Other', 'box'], ['mod', 'Mod vehicles', 'puzzle']];
 
 $('#tbLogo').innerHTML = LOGO;
 for (const el of $$('.seg-item')) {
@@ -296,9 +296,12 @@ function saveBlocked() {
 
 function renderVehicles(body, { modVeh, libVeh }) {
   const all = [...P.stock.vehicles, ...modVeh];
-  const inCat = (v) => P.vehCat === 'all' || v.category === P.vehCat;
+  // "Add" views (Mod vehicles, BeamMP mods) only list vehicles you can add, not ones already on the server.
+  const addOnly = P.vehCat === 'mod' || P.vehCat === 'beammp';
+  const inCat = (v) => P.vehCat === 'all' || P.vehCat === 'onserver' || (!addOnly && v.category === P.vehCat);
   const shown = all.filter((v) => inCat(v) && match(v.name, v.model, v.brand, v.mod?.fileName || ''));
-  const counts = Object.fromEntries(CATS.map(([k]) => [k, all.filter((v) => k === 'all' || v.category === k).length]));
+  const counts = Object.fromEntries(CATS.map(([k]) => [k, all.filter((v) => k === 'all' || k === 'onserver' || v.category === k).length]));
+  counts.mod = 0; // filled below with addable vehicles only
   const srcCount = (src) => ['host', 'pc'].reduce((n, owner) => {
     const data = owner === 'host' ? P.library : (REMOTE.connected ? P.thisPc : null);
     if (!data || data.loading || (REMOTE.connected && P.owner !== 'all' && P.owner !== owner)) return n;
@@ -307,9 +310,9 @@ function renderVehicles(body, { modVeh, libVeh }) {
   counts.beammp = srcCount('beammp');
   counts.mod += srcCount('beamng');
   $('#sub').innerHTML = `
-    <div class="chips">${CATS.filter(([k]) => counts[k] || k === 'mod' || k === 'beammp').map(([k, label, ic]) => `<span class="chip ${P.vehCat === k ? 'on' : ''}" data-cat="${k}">${icon(ic)}${label}<span class="n">${counts[k]}</span></span>`).join('')}</div>
+    <div class="chips">${CATS.filter(([k]) => counts[k] || k === 'mod' || k === 'beammp' || k === 'onserver').map(([k, label, ic]) => `<span class="chip ${P.vehCat === k ? 'on' : ''}" data-cat="${k}">${icon(ic)}${label}<span class="n">${counts[k]}</span></span>`).join('')}</div>
     <div class="grow"></div>
-    ${P.vehCat === 'beammp' ? '' : `<button class="btn sm" id="vOn">${icon('check')}All shown on</button>
+    ${addOnly ? '' : `<button class="btn sm" id="vOn">${icon('check')}All shown on</button>
     <button class="btn sm" id="vOff">${icon('x')}All shown off</button>
     <button class="btn sm ghost" id="vReset">${icon('refresh')}Reset</button>`}
     <button class="btn primary sm" id="vAdd">${icon('plus')}Add vehicle (.zip)</button>`;
@@ -326,11 +329,14 @@ function renderVehicles(body, { modVeh, libVeh }) {
   const onlyMp = P.vehCat === 'beammp';
   // Sections from mod folders: BeamMP mods under "All" and the BeamMP chip; BeamNG mods under "All" and "Mod vehicles".
   const srcFilter = P.vehCat === 'all' ? null : onlyMp ? 'beammp' : P.vehCat === 'mod' ? 'beamng' : 'none';
-  body.innerHTML = `${onlyMp ? '' : fallbackNotice()}
-    ${onlyMp ? `<div class="notice">${icon('info')}<div>Vehicles from <b>BeamMP mods</b>: the BeamMP Launcher's Resources folder, where multiplayer mods are kept. Add one to put it on this server.</div></div>`
-      : `<div class="notice">${icon('info')}<div>Every stock vehicle is <b>on</b> by default. Click a vehicle to switch it off; players can't spawn vehicles that are off. Changes save automatically and apply instantly, even while the server is running.</div></div>
+  const addNotice = onlyMp
+    ? 'Vehicles from <b>BeamMP mods</b> (the BeamMP Launcher\'s Resources folder) that aren\'t on this server yet. Add one to put it on the server. To see or switch off vehicles already on the server, use <b>On server</b>.'
+    : 'Vehicle mods you can add to this server. To see or switch off vehicles already on the server, use <b>On server</b>.';
+  body.innerHTML = `${addOnly ? '' : fallbackNotice()}
+    ${addOnly ? `<div class="notice">${icon('info')}<div>${addNotice}</div></div>`
+      : `<div class="notice">${icon('info')}<div>${P.vehCat === 'onserver' ? 'Every vehicle on this server, stock and mod.' : 'Every stock vehicle is <b>on</b> by default.'} Click a vehicle to switch it off; players can't spawn vehicles that are off. Changes save automatically and apply instantly, even while the server is running.</div></div>
     ${shown.length ? `<div class="cgrid small">${shown.map(card).join('')}</div>`
-      : `<div class="empty">${icon('car')}<div>${P.vehCat === 'mod' && !P.q ? 'No mod vehicles on this server yet. Add one from the sections below, or drop a .zip here.' : 'No vehicles match'}</div></div>`}`}
+      : `<div class="empty">${icon('car')}<div>No vehicles match</div></div>`}`}
     ${srcFilter === 'none' ? '' : sourceSections('vehicle', 'host', srcFilter || undefined) + sourceSections('vehicle', 'pc', srcFilter || undefined)}`;
   bindSources(body);
   const updateFoot = () => {

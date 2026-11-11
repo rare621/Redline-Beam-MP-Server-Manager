@@ -496,8 +496,11 @@ const CFG_FIELDS = {
 
 function configDirty() {
   if (!cfgOriginal || !$('#cfgForm')) return false;
+  // Compare field by field (key order and number/string formatting must not count as a change).
   const cur = readCfgForm();
-  return JSON.stringify(cur) !== JSON.stringify(pickCfg(cfgOriginal));
+  const orig = pickCfg(cfgOriginal);
+  const norm = (v) => (typeof v === 'boolean' ? String(v) : String(v ?? '').replace(/\r\n/g, '\n').trim());
+  return Object.keys(cur).some((sec) => Object.keys(cur[sec]).some((k) => norm(cur[sec][k]) !== norm(orig[sec]?.[k])));
 }
 function pickCfg(c) {
   const out = {};
@@ -812,7 +815,7 @@ async function createServerDialog() {
   $('#nKeyLink', body).onclick = () => api.call('ui:openExternal', KEYMASTER);
   const drawMap = () => {
     $('#nMap', body).innerHTML = `${thumbHtml(selMap.thumb, 'map')}<div class="grow"><div style="font-weight:700">${esc(selMap.title)}</div>
-      <div class="faint" style="font-size:12px">${selMap.source === 'stock' ? 'BeamNG map' : `Mod map · ${esc(selMap.modFile?.split(/[\\/]/).pop() || '')}`}</div></div>
+      <div class="faint" style="font-size:12px">${selMap.source === 'stock' ? 'BeamNG map' : `${selMap.source === 'thispc' ? 'From this PC (will upload)' : 'Mod map'} · ${esc(selMap.modFile?.split(/[\\/]/).pop() || '')}`}</div></div>
       <button class="btn sm">${icon('image')}Choose map</button>`;
   };
   drawMap();
@@ -847,6 +850,10 @@ async function createServerDialog() {
           if (selMap.source === 'library' && selMap.modFile) {
             $('#createStatus', b).textContent = 'Adding the map mod to the server…';
             await api.call('mods:addHost', created.id, [selMap.modFile]);
+          }
+          if (selMap.source === 'thispc' && selMap.modFile) {
+            $('#createStatus', b).textContent = 'Uploading the map from this PC to the host…';
+            await api.call('mods:add', created.id, [selMap.modFile]);
           }
           return created;
         } catch (e) {
@@ -954,16 +961,19 @@ async function pickMapModal(currentPath, serverId) {
     actions: [{ label: 'Cancel', value: null }],
     onMount: (b, close) => {
       const draw = () => {
-        const counts = { all: items.length, stock: items.filter((i) => i.source === 'stock').length, mods: items.filter((i) => i.source !== 'stock').length };
-        $('#mpChips', b).innerHTML = [['all', 'All', 'layers'], ['stock', 'BeamNG', 'map'], ['mods', 'Mod maps', 'puzzle']]
+        const counts = { all: items.length, stock: items.filter((i) => i.source === 'stock').length, mods: items.filter((i) => i.source !== 'stock' && i.source !== 'thispc').length, thispc: items.filter((i) => i.source === 'thispc').length };
+        const chips = [['all', 'All', 'layers'], ['stock', 'BeamNG', 'map'], ['mods', REMOTE.connected ? "Host's mod maps" : 'Mod maps', 'puzzle']];
+        if (REMOTE.connected) chips.push(['thispc', 'This PC', 'upload']);
+        $('#mpChips', b).innerHTML = chips
           .map(([k, l, ic]) => `<span class="chip ${filter === k ? 'on' : ''}" data-f="${k}">${icon(ic)}${l} <span class="faint">${counts[k]}${k !== 'stock' && libLoading ? '…' : ''}</span></span>`).join('');
         for (const c of $$('[data-f]', b)) c.onclick = () => { filter = c.dataset.f; draw(); };
-        const shown = items.filter((m) => (filter === 'all' || (filter === 'stock' ? m.source === 'stock' : m.source !== 'stock'))
+        const inFilter = (m) => filter === 'all' || (filter === 'stock' ? m.source === 'stock' : filter === 'thispc' ? m.source === 'thispc' : m.source !== 'stock' && m.source !== 'thispc');
+        const shown = items.filter((m) => inFilter(m)
           && (!q || `${m.title} ${m.id} ${m.modFile || ''}`.toLowerCase().includes(q)));
         $('#mpGrid', b).innerHTML = shown.map((m, i) => `
           <div class="mp-card ${m.mapPath.toLowerCase() === cur ? 'sel' : ''}" data-i="${items.indexOf(m)}" style="animation-delay:${Math.min(i, 20) * 18}ms">
             ${thumbHtml(m.thumb, 'map')}
-            <div class="tag">${m.source === 'stock' ? '<span class="pill">BeamNG</span>' : `<span class="pill blue">${m.source === 'server' ? 'On server' : 'Your mod'}</span>`}</div>
+            <div class="tag">${m.source === 'stock' ? '<span class="pill">BeamNG</span>' : `<span class="pill blue">${{ server: 'On server', thispc: 'This PC · uploads' }[m.source] || (REMOTE.connected ? "Host's mod" : 'Your mod')}</span>`}</div>
             <div class="n ellipsis">${esc(m.title)}</div><div class="s ellipsis">${m.source === 'stock' ? esc(m.id) : esc(m.modFile.split(/[\\/]/).pop())}</div>
           </div>`).join('')
           + (libLoading && filter !== 'stock' ? `<div class="row faint" style="grid-column:1/-1;padding:10px"><div class="spinner"></div>Loading mod maps from your mods library…</div>` : '')
@@ -980,6 +990,10 @@ async function pickMapModal(currentPath, serverId) {
         }
         const lib = await api.call('mods:library').catch(() => ({ mods: [] }));
         for (const m of lib.mods) for (const mp of m.maps || []) if (!seen.has(mp.mapPath.toLowerCase())) { seen.add(mp.mapPath.toLowerCase()); items.push({ ...mp, source: 'library', modFile: m.file }); }
+        if (REMOTE.connected) {
+          const pc = await api.call('local:library').catch(() => ({ mods: [] }));
+          for (const m of pc.mods) for (const mp of m.maps || []) if (!seen.has(mp.mapPath.toLowerCase())) { seen.add(mp.mapPath.toLowerCase()); items.push({ ...mp, source: 'thispc', modFile: m.file }); }
+        }
         libLoading = false;
         if (document.body.contains(b)) draw();
       })();

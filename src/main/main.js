@@ -147,7 +147,7 @@ function addFirewallRule(port) {
 
 // ---------- IPC ----------
 // Channels that always run on this computer, even while controlling a remote host.
-const LOCAL_ONLY = /^(ui:|dialog:|remote:|fs:isDir$)/;
+const LOCAL_ONLY = /^(ui:|dialog:|remote:|local:|fs:isDir$)/;
 const HOST_SIDE_ONLY = { 'files:reveal': 'Open in Explorer only works on the host computer itself.', 'net:firewall': 'Add the firewall rule on the host computer itself.' };
 
 // When remote, files picked on this computer are uploaded to the host first.
@@ -216,6 +216,29 @@ function syncToLibrary(ids, reason) {
   return syncChain;
 }
 
+// ---------- only the active map gets downloaded ----------
+// Map-only mod zips that don't contain the server's current map are switched off
+// (moved out of Resources/Client) so players don't download unused tracks. The zip
+// holding the current map is switched on. Mods that also contain vehicles are left alone.
+async function reconcileMapMods(id) {
+  const files = servers.listModFiles(id);
+  const details = await content.scanMods(files.map((f) => f.file));
+  const cur = String(servers.readConfig(id).General.Map || '').toLowerCase();
+  const disabled = [];
+  const enabled = [];
+  for (const f of files) {
+    const d = details.find((x) => x.file === f.file);
+    if (!d || !d.maps?.length || d.vehicles?.length) continue;
+    const isCurrent = d.maps.some((m) => m.mapPath.toLowerCase() === cur);
+    try {
+      if (isCurrent && !f.enabled) { await servers.setModEnabled(id, f.fileName, true); enabled.push(d.title || f.fileName); }
+      if (!isCurrent && f.enabled) { await servers.setModEnabled(id, f.fileName, false); disabled.push(d.title || f.fileName); }
+    } catch (e) { console.warn('map reconcile', f.fileName, e.message); }
+  }
+  if (disabled.length || enabled.length) broadcast('maps:reconciled', { id, disabled, enabled });
+  return { disabled, enabled };
+}
+
 // Lists folders on this computer, used by the remote folder picker.
 async function listHostFolders(dir) {
   if (!dir) {
@@ -256,7 +279,11 @@ function registerIpc() {
   handle('servers:defaultDir', () => store.settings.serversDir || path.join(app.getPath('documents'), 'BeamMP Servers'));
 
   handle('config:read', (id) => servers.readConfig(id));
-  handle('config:write', (id, sections) => servers.writeConfig(id, sections));
+  handle('config:write', async (id, sections) => {
+    const r = await servers.writeConfig(id, sections);
+    if (sections?.General?.Map) await reconcileMapMods(id);
+    return servers.readConfig(id);
+  });
   handle('config:writeRaw', (id, text) => servers.writeRawConfig(id, text));
   handle('meta:read', (id) => servers.readMeta(id));
   handle('vehicles:setBlocked', (id, models) => servers.setBlockedVehicles(id, models));
@@ -267,10 +294,12 @@ function registerIpc() {
     const details = await content.scanMods(files.map((f) => f.file));
     return files.map((f) => ({ ...f, ...(details.find((d) => d.file === f.file) || {}), enabled: f.enabled }));
   });
-  handle('mods:add', async (id, files) => { const r = await servers.addMods(id, files); syncToLibrary([id], 'mod added'); return r; });
+  handle('mods:add', async (id, files) => { const r = await servers.addMods(id, files); syncToLibrary([id], 'mod added'); await reconcileMapMods(id); return r; });
   // Same as mods:add, for files already on the host (e.g. its library): never uploads.
-  handle('mods:addHost', async (id, files) => { const r = await servers.addMods(id, files); syncToLibrary([id], 'mod added'); return r; });
+  handle('mods:addHost', async (id, files) => { const r = await servers.addMods(id, files); syncToLibrary([id], 'mod added'); await reconcileMapMods(id); return r; });
   handle('library:dir', () => content.centralLibraryDir());
+  // This computer's own BeamNG mods (used while controlling a remote host, to upload from here).
+  handle('local:library', () => content.listUserLibrary({ beamngOnly: true }));
   handle('library:count', (dir) => { try { return fs.readdirSync(dir || content.centralLibraryDir()).length; } catch { return 0; } });
   // Move the central library to a new folder, then remove the old folder once it's empty.
   handle('library:move', async (newDir) => {

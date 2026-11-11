@@ -216,7 +216,40 @@ api.on('remote:state', (st) => {
   else if (st.reason) toast(st.reason, 'error', 'Disconnected');
   $('#remoteBadge')?.classList.toggle('lost', !!st.reconnecting);
 });
-api.on('remote:upload', (u) => toast(`Uploading ${u.file} (${fmtBytes(u.size)}) to the host…`, 'info'));
+// Upload progress card (remote PC → host).
+api.on('remote:upload', (u) => {
+  let card = document.getElementById('up-' + u.id);
+  if (!card) {
+    card = h(`<div class="upload-card" id="up-${u.id}"><div class="row"><div class="up-ic">${icon('upload')}</div>
+      <div class="grow"><div class="up-title">Uploading to host</div><div class="up-file ellipsis"></div></div><div class="up-pct"></div></div>
+      <div class="progress"><div style="width:0%"></div></div><div class="up-meta"></div></div>`);
+    document.body.appendChild(card);
+  }
+  const pct = u.total ? Math.min(100, (u.sent / u.total) * 100) : 0;
+  const secs = (Date.now() - u.started) / 1000;
+  const speed = secs > 0.3 ? u.sent / secs : 0;
+  const eta = speed > 0 ? (u.total - u.sent) / speed : 0;
+  card.querySelector('.progress > div').style.width = pct + '%';
+  card.querySelector('.up-pct').textContent = Math.floor(pct) + '%';
+  if (u.file) card.querySelector('.up-file').textContent = `${u.count > 1 ? `${u.index + 1}/${u.count} · ` : ''}${u.file}`;
+  card.querySelector('.up-meta').textContent = `${fmtBytes(u.sent)} of ${fmtBytes(u.total)}${speed ? ` · ${fmtBytes(speed)}/s` : ''}${eta > 1 && u.phase === 'progress' ? ` · ${eta > 90 ? Math.ceil(eta / 60) + ' min' : Math.ceil(eta) + ' s'} left` : ''}`;
+  if (u.phase === 'done') {
+    card.classList.add('done');
+    card.querySelector('.up-title').textContent = 'Uploaded · adding to server…';
+    card.querySelector('.up-pct').textContent = '100%';
+    setTimeout(() => { card.classList.add('out'); setTimeout(() => card.remove(), 400); }, 3500);
+  }
+  if (u.phase === 'error') {
+    card.classList.add('failed');
+    card.querySelector('.up-title').textContent = 'Upload failed';
+    card.querySelector('.up-meta').textContent = u.error || '';
+    setTimeout(() => { card.classList.add('out'); setTimeout(() => card.remove(), 400); }, 7000);
+  }
+});
+api.on('maps:reconciled', (e) => {
+  if (e.disabled.length) toast(`So players only download the map in use, these were switched off: ${e.disabled.join(', ')}`, 'info', 'Unused maps switched off');
+  if (e.enabled.length) toast(`Switched on: ${e.enabled.join(', ')}`, 'success', 'Map mod enabled');
+});
 api.on('library:sync', (e) => toast(`${e.added.length} mod${e.added.length > 1 ? 's' : ''} copied into your central mods library`, 'success', 'Mods library updated'));
 
 // Pick a folder on the computer that runs the servers: a native dialog locally,

@@ -29,12 +29,21 @@ Build the installers with `npm run dist` (output in `dist/`).
 - **Plugins** (Resources/Server) and a **file browser** for the whole server folder. Drag and drop works everywhere.
 - **Your BeamNG mods folder** is shown inside Maps and Vehicles: one click adds a mod map or vehicle to the server.
   The New Server dialog has a full map browser (BeamNG maps + your mod maps, with search and filters).
+- **Only the map in use is downloaded**: when you change maps, unused map-only mods are switched off
+  automatically (moved out of `Resources/Client`) and switched back on when selected again.
+- **Central mods library** (default `Documents\Redline Mods Library`): every mod and track from your servers is
+  collected here automatically, so it's all available when you create a new server, even on a PC without BeamNG.
+  Changing its folder moves everything over.
 - **Auto-detect** (App settings) finds BeamNG via Steam libraries, BeamNG's own settings file and common folders.
 - **Remote management** (sidebar → Remote):
   - On the host PC: turn on "Allow remote control", set a password, note the `IP : port` shown.
   - On the other PC: enter that IP, port and password under "Control another computer" and click Connect.
   - Everything (servers, console, photos, mods) loads from the host; nothing is stored on the remote PC.
     Files you add from the remote PC are uploaded to the host.
+  - While connected, a **This PC** section (Maps, Vehicles, Mods and the New Server map browser) lists the remote
+    computer's own BeamNG mods and tracks; **Upload** sends them to the host with a progress bar.
+  - Recent connections are saved; "Remember password" stores it encrypted for your Windows account.
+    The remote PC keeps no copies of the host's files or photos.
   - Same home network only. The password is never sent over the network, and repeated wrong guesses are locked out.
     Allow Redline through Windows Firewall on the host (Private networks) when Windows asks.
 

@@ -14,7 +14,7 @@ const DEFAULT_PORT = 47815;
 const PROTOCOL = 1;
 const THUMB_SCHEME = 'redline-thumb://';
 // Channels a remote client may never invoke on the host.
-const HOST_BLOCKED = /^(ui:|dialog:|remote:|fs:isDir$|net:firewall$|files:reveal$)/;
+const HOST_BLOCKED = /^(ui:|dialog:|remote:|local:|fs:isDir$|net:firewall$|files:reveal$)/;
 
 const deriveKey = (password, salt) => crypto.scryptSync(String(password), Buffer.from(salt, 'hex'), 32);
 const hmac = (key, nonce) => crypto.createHmac('sha256', key).update(nonce).digest('hex');
@@ -368,27 +368,41 @@ class RemoteClient extends EventEmitter {
   // Upload local files/folders to the host; returns the matching host paths.
   async upload(localPaths) {
     const batch = crypto.randomBytes(8).toString('hex');
-    const hostPaths = [];
-    for (const lp of localPaths) {
-      const rootName = path.basename(lp);
-      const files = [];
-      const walk = (p, rel) => {
-        const st = fs.statSync(p);
-        if (st.isDirectory()) for (const n of fs.readdirSync(p)) walk(path.join(p, n), `${rel}/${n}`);
-        else files.push([p, rel]);
-      };
-      walk(lp, rootName);
-      for (const [file, rel] of files) {
-        const size = fs.statSync(file).size;
-        this.emit('upload', { file: path.basename(file), size });
-        const r = await this.request('POST', `/api/upload?batch=${batch}&rel=${encodeURIComponent(rel)}`, {
-          stream: fs.createReadStream(file), headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': size }, timeout: 30 * 60 * 1000,
+    // Collect every file first so progress can cover the whole upload.
+    const files = [];
+    const walk = (p, rel) => {
+      const st = fs.statSync(p);
+      if (st.isDirectory()) for (const n of fs.readdirSync(p)) walk(path.join(p, n), `${rel}/${n}`);
+      else files.push({ file: p, rel, size: st.size });
+    };
+    for (const lp of localPaths) walk(lp, path.basename(lp));
+    const total = files.reduce((a, f) => a + f.size, 0);
+    const started = Date.now();
+    let sent = 0;
+    let last = 0;
+    const report = (phase, extra = {}) => this.emit('upload', { id: batch, phase, sent, total, count: files.length, started, ...extra });
+    report('start');
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const f = files[i];
+        const stream = fs.createReadStream(f.file);
+        stream.on('data', (chunk) => {
+          sent += chunk.length;
+          const now = Date.now();
+          if (now - last > 120) { last = now; report('progress', { file: path.basename(f.file), index: i }); }
         });
-        if (r.status !== 200) throw new Error(`Upload of ${path.basename(file)} failed`);
+        report('progress', { file: path.basename(f.file), index: i });
+        const r = await this.request('POST', `/api/upload?batch=${batch}&rel=${encodeURIComponent(f.rel)}`, {
+          stream, headers: { 'Content-Type': 'application/octet-stream', 'Content-Length': f.size }, timeout: 60 * 60 * 1000,
+        });
+        if (r.status !== 200) throw new Error(`Upload of ${path.basename(f.file)} failed`);
       }
-      hostPaths.push({ batch, rel: rootName });
+    } catch (e) {
+      report('error', { error: e.message });
+      throw e;
     }
-    return { batch, items: hostPaths };
+    report('done');
+    return { batch, items: localPaths.map((lp) => ({ batch, rel: path.basename(lp) })) };
   }
 }
 

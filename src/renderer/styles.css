@@ -227,6 +227,25 @@ a:hover { text-decoration: underline; }
 .remote-badge .btn { height: 22px; font-size: 11px; padding: 0 8px; }
 .remote-badge.lost { background: var(--red-soft); border-color: rgba(255, 77, 94, 0.4); color: #ff8f9b; }
 
+/* upload progress card */
+.upload-card {
+  position: fixed; left: 18px; bottom: 18px; width: 340px; z-index: 900; padding: 14px; border-radius: 14px; display: flex; flex-direction: column; gap: 10px;
+  background: rgba(28, 32, 43, 0.97); border: 1px solid var(--line-2); box-shadow: var(--shadow); animation: toastIn 0.4s var(--ease);
+}
+.upload-card + .upload-card { bottom: 128px; }
+.upload-card .up-ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--blue-soft); color: var(--blue); flex: none; }
+.upload-card .up-ic svg { width: 18px; height: 18px; animation: upBob 1.2s ease-in-out infinite; }
+@keyframes upBob { 50% { transform: translateY(-3px); } }
+.upload-card .up-title { font-weight: 700; font-size: 13px; }
+.upload-card .up-file { font-size: 12px; color: var(--text-2); }
+.upload-card .up-pct { font-weight: 800; font-size: 16px; color: var(--accent-2); font-variant-numeric: tabular-nums; }
+.upload-card .up-meta { font-size: 11.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.upload-card.done .up-ic { background: var(--green-soft); color: var(--green); }
+.upload-card.done .up-ic svg { animation: none; }
+.upload-card.failed .up-ic { background: var(--red-soft); color: var(--red); }
+.upload-card.failed .progress > div { background: var(--red); }
+.upload-card.out { animation: toastOut 0.35s ease forwards; }
+
 /* shared map browser pop-up */
 .mp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; max-height: 56vh; overflow: auto; padding: 4px; }
 .mp-card { border-radius: 12px; overflow: hidden; cursor: pointer; border: 2px solid transparent; background: rgba(0, 0, 0, 0.3); transition: transform 0.25s var(--ease), border-color 0.2s, box-shadow 0.25s; animation: fadeUp 0.35s var(--ease) both; position: relative; }

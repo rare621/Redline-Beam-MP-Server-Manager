@@ -341,8 +341,8 @@ class ContentService {
   }
 
   // Mods available to add: the central library plus the BeamNG mods folder (if this PC has one).
-  async listUserLibrary() {
-    const central = this.centralLibraryDir();
+  async listUserLibrary({ beamngOnly = false } = {}) {
+    const central = beamngOnly ? null : this.centralLibraryDir();
     const beam = this.findUserModsDir();
     const dirs = [central, beam].filter(Boolean);
     const files = [];
@@ -367,7 +367,7 @@ class ContentService {
       if (r) mods.push(r);
     }
     mods.sort((a, b) => a.title.localeCompare(b.title));
-    return { dir: central, central, beamngDir: beam, mods };
+    return { dir: central || beam, central, beamngDir: beam, mods };
   }
 }
 

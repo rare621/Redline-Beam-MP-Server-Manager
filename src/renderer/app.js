@@ -885,13 +885,20 @@ async function appSettingsDialog() {
       <div class="toggle-row"><div><div class="t-title">Auto-detect BeamNG</div><div class="t-sub">Finds the game through Steam libraries, BeamNG's own settings file and common folders</div></div><button class="btn sm primary" id="sDetect">${icon('search')}Auto-detect</button></div>
       ${folderField('sGame', 'BeamNG.drive install folder', settings.beamngPath, det(gameDir, 'Set it to show stock maps and vehicles with photos.'))}
       ${folderField('sMods', 'Your BeamNG mods folder', settings.modsPath, det(modsDir, 'Fine if BeamNG isn\'t installed here: the central mods library below is used instead.'))}
-      ${folderField('sLib', `Central mods library${gameDir ? '' : ' <span class="pill accent" style="height:20px;font-size:11px">used because BeamNG isn\'t installed</span>'}`, settings.libraryPath, `Currently: ${esc(libDir)}. Mods and tracks from every server are collected here automatically.`)}
+      ${folderField('sLib', `Central mods library${gameDir ? '' : ' <span class="pill accent" style="height:20px;font-size:11px">used because BeamNG isn\'t installed</span>'}`, settings.libraryPath, `Currently: ${esc(libDir)}`)}
+      <div class="field"><label>Collect server mods into the library</label>
+        <select class="input" id="sCollectMode">
+          <option value="auto" ${(settings.libraryCollect || 'auto') === 'auto' ? 'selected' : ''}>Only when BeamNG isn't installed on this PC${gameDir ? ' (BeamNG found, so off)' : ' (BeamNG not found, so on)'}</option>
+          <option value="always" ${settings.libraryCollect === 'always' ? 'selected' : ''}>Always</option>
+          <option value="never" ${settings.libraryCollect === 'never' ? 'selected' : ''}>Never</option>
+        </select>
+        <span class="hint">When on, every mod or track added to a server is also kept in the library, ready for new servers.</span></div>
       <div class="toggle-row"><div><div class="t-title">Collect mods from all servers now</div><div class="t-sub">Copies any server mod or track that isn't in the central library yet</div></div><button class="btn sm" id="sCollect">${icon('download')}Collect</button></div>
       ${folderField('sServers', 'Default folder for new servers', settings.serversDir, `Currently: ${esc(defaultDir)}`)}
       <div class="toggle-row"><div><div class="t-title">Rescan BeamNG content</div><div class="t-sub">Reload stock maps, vehicles and photos (after a game update)</div></div><button class="btn sm" id="sRescan">${icon('refresh')}Rescan</button></div>`,
     actions: [{ label: 'Cancel', value: null }, {
       label: 'Save', primary: true,
-      onClick: (b) => ({ beamngPath: $('#sGame', b).value.trim(), modsPath: $('#sMods', b).value.trim(), serversDir: $('#sServers', b).value.trim(), libraryPath: $('#sLib', b).value.trim() }),
+      onClick: (b) => ({ beamngPath: $('#sGame', b).value.trim(), modsPath: $('#sMods', b).value.trim(), serversDir: $('#sServers', b).value.trim(), libraryPath: $('#sLib', b).value.trim(), libraryCollect: $('#sCollectMode', b).value }),
     }],
     onMount: (b) => {
       $('#sCollect', b).onclick = async (e) => {

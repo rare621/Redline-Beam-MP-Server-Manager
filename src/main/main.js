@@ -190,8 +190,17 @@ function handle(channel, fn) {
 // Copies (or hard-links, when on the same drive) every server mod zip that the
 // central library doesn't have yet, so new servers can pick from everything.
 let syncChain = Promise.resolve();
+// libraryCollect: 'auto' (default: only when BeamNG isn't installed here), 'always' or 'never'.
+async function shouldCollect(reason) {
+  const mode = store.settings.libraryCollect || 'auto';
+  if (reason === 'manual' || mode === 'always') return true;
+  if (mode === 'never') return false;
+  return !(await content.findGameDir());
+}
+
 function syncToLibrary(ids, reason) {
   syncChain = syncChain.then(async () => {
+    if (!(await shouldCollect(reason))) return [];
     const lib = content.centralLibraryDir();
     const have = new Map();
     try { for (const f of fs.readdirSync(lib)) have.set(f.toLowerCase(), f); } catch { return; }

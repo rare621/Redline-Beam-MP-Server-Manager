@@ -2,7 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme, clipboard, safe
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const store = require('./store');
 const { ServerManager, httpGet } = require('./servers');
 const { ContentService } = require('./content');
@@ -249,6 +249,69 @@ async function reconcileMapMods(id) {
   return { disabled, enabled };
 }
 
+// ---------- Redline self-update (GitHub releases) ----------
+const APP_REPO = 'rare621/Redline-Beam-MP-Server-Manager';
+const appVersion = () => process.env.REDLINE_FAKE_VERSION || app.getVersion(); // env: test hook
+const isPortable = () => !!process.env.PORTABLE_EXECUTABLE_FILE;
+
+async function checkAppUpdate() {
+  const r = await httpGet(`https://api.github.com/repos/${APP_REPO}/releases/latest`, { json: true });
+  const latest = String(r.tag_name || '').replace(/^v/, '');
+  const current = appVersion();
+  const setup = (r.assets || []).find((a) => /^Redline-Setup-.*\.exe$/i.test(a.name));
+  return {
+    current,
+    latest,
+    available: !!latest && ServerManager.compareVersions(latest, current) > 0,
+    skipped: store.settings.skipAppVersion === latest,
+    notes: String(r.body || '').slice(0, 4000),
+    url: r.html_url,
+    setup: setup ? { url: setup.browser_download_url, size: setup.size, name: setup.name } : null,
+    portable: isPortable(),
+    packaged: app.isPackaged,
+  };
+}
+
+async function installAppUpdate() {
+  const info = await checkAppUpdate();
+  if (!info.available) throw new Error('Redline is already up to date');
+  if (!info.setup) throw new Error('This release has no installer attached');
+  const dest = path.join(os.tmpdir(), info.setup.name);
+  let last = 0;
+  sendToWindows('app:update-progress', { phase: 'download', got: 0, total: info.setup.size });
+  await httpGet(info.setup.url, {
+    dest,
+    onProgress: (got, total) => {
+      const now = Date.now();
+      if (now - last > 150) { last = now; sendToWindows('app:update-progress', { phase: 'download', got, total: total || info.setup.size }); }
+    },
+  });
+  const size = fs.statSync(dest).size;
+  if (size !== info.setup.size) throw new Error('The download was incomplete. Please try again.');
+  if (!app.isPackaged) {
+    sendToWindows('app:update-progress', { phase: 'done-dev', file: dest });
+    return { installed: false, file: dest, note: 'Running from source: downloaded but not installed.' };
+  }
+  sendToWindows('app:update-progress', { phase: 'install' });
+  // Stop servers, run the installer silently, then start the updated Redline again.
+  quitting = true;
+  await servers.stopAll();
+  const exe = process.execPath;
+  const cmdFile = path.join(os.tmpdir(), 'redline-update.cmd');
+  fs.writeFileSync(cmdFile, [
+    '@echo off',
+    'rem Wait for Redline to close, install the update silently, then start Redline again.',
+    'timeout /t 3 /nobreak >nul',
+    `start "" /wait "${dest}" /S`,
+    `start "" "${exe}"`,
+    `del "${dest}" >nul 2>&1`,
+    '(goto) 2>nul & del "%~f0"',
+  ].join('\r\n'));
+  spawn('cmd.exe', ['/d', '/c', cmdFile], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  setTimeout(() => app.quit(), 300);
+  return { installed: true };
+}
+
 // Lists folders on this computer, used by the remote folder picker.
 async function listHostFolders(dir) {
   if (!dir) {
@@ -315,6 +378,11 @@ function registerIpc() {
   handle('local:library', () => content.listUserLibrary({ beamngOnly: true }));
   // This computer's own stock BeamNG content (real names + photos), shown while controlling a host.
   handle('local:stock', (force) => content.getStock(force));
+  // Redline's own updates always concern this computer, so these are local-only too.
+  handle('local:appUpdateCheck', () => checkAppUpdate());
+  handle('local:appUpdateInstall', () => installAppUpdate());
+  handle('local:appUpdateSkip', (version) => { store.settings.skipAppVersion = version; store.save(); });
+  handle('local:appVersion', () => ({ version: appVersion(), portable: isPortable(), packaged: app.isPackaged }));
   handle('library:count', (dir) => { try { return fs.readdirSync(dir || content.centralLibraryDir()).length; } catch { return 0; } });
   // Move the central library to a new folder, then remove the old folder once it's empty.
   handle('library:move', async (newDir) => {

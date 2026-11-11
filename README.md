@@ -25,6 +25,9 @@ Get the latest version from the [Releases page](https://github.com/rare621/Redli
 
 Windows may show "Windows protected your PC" because the app isn't code-signed: click **More info → Run anyway**.
 
+Redline checks this page for new versions when it starts and every hour. When one is out, it offers to
+download and install it for you (the portable exe opens the download page instead).
+
 ## Run from source
 ```bash
 npm install

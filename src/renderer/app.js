@@ -54,7 +54,63 @@ refreshServers().then(() => {
   if (state.servers.length) select(state.servers[0].id);
   else renderMain();
   setupCheck();
+  // Redline updates: check shortly after launch, then every hour while open.
+  setTimeout(() => checkRedlineUpdate(), 5000);
+  setInterval(() => checkRedlineUpdate(), 60 * 60 * 1000);
 });
+
+// ---------- Redline self-update ----------
+let updatePromptOpen = false;
+async function checkRedlineUpdate({ manual = false } = {}) {
+  let info;
+  try { info = await api.call('local:appUpdateCheck'); } catch (e) {
+    if (manual) toast(`Couldn't reach GitHub: ${e.message}`, 'error', 'Update check failed');
+    return null;
+  }
+  if (!info.available) { if (manual) toast(`You have the latest version (${info.current}).`, 'success', 'Redline is up to date'); return info; }
+  if ((info.skipped && !manual) || updatePromptOpen) return info;
+  updatePromptOpen = true;
+  const notes = info.notes.replace(/\r/g, '').replace(/^#+\s*/gm, '').replace(/\*\*/g, '').trim();
+  await modal({
+    title: `Redline ${info.latest} is available`,
+    wide: true,
+    body: `<div class="row"><div style="width:52px;height:52px;flex:none">${LOGO}</div><div class="grow"><div style="font-weight:700;font-size:15px">A new version of Redline is ready</div>
+        <div class="faint">You have ${esc(info.current)}. ${info.portable ? 'You\'re using the portable version, so download the new exe from the release page.' : 'Update now downloads and installs it, then reopens Redline. Your servers and settings are kept.'}</div></div></div>
+      ${notes ? `<div class="card" style="max-height:260px;overflow:auto;white-space:pre-wrap;font-size:13px;line-height:1.55;user-select:text">${esc(notes)}</div>` : ''}
+      <div id="auProgress" class="hidden"><div class="faint" id="auStatus" style="margin-bottom:8px">Starting download…</div><div class="progress"><div style="width:0%"></div></div></div>`,
+    actions: [
+      { label: 'Skip this version', cls: 'ghost', onClick: async () => { await api.call('local:appUpdateSkip', info.latest); toast(`You won't be asked about ${info.latest} again. Use App settings → Check for updates any time.`, 'info'); return true; } },
+      { label: 'Later', value: null },
+      info.portable || !info.setup
+        ? { label: 'Open download page', primary: true, icon: 'external', onClick: async () => { await api.call('ui:openExternal', info.url); return true; } }
+        : {
+          label: 'Update now', primary: true, icon: 'download',
+          onClick: async (b) => {
+            const running = REMOTE.connected ? 0 : state.servers.filter((s) => s.status === 'running').length;
+            if (running && !(await confirmBox('Servers are running', `Updating closes Redline for a moment, which stops ${running} running server${running > 1 ? 's' : ''}. Start ${running > 1 ? 'them' : 'it'} again after the update.`, { ok: 'Update anyway' }))) return false;
+            $('#auProgress', b).classList.remove('hidden');
+            $$('.modal footer .btn').forEach((x) => { x.disabled = true; });
+            const off = api.on('app:update-progress', (p) => {
+              const bar = $('#auProgress .progress > div', b);
+              if (p.phase === 'download') {
+                bar.style.width = (p.total ? (p.got / p.total) * 100 : 0) + '%';
+                $('#auStatus', b).textContent = `Downloading Redline ${info.latest}… ${fmtBytes(p.got)} of ${fmtBytes(p.total)}`;
+              }
+              if (p.phase === 'install') { bar.style.width = '100%'; $('#auStatus', b).textContent = 'Installing… Redline will close and reopen in a few seconds.'; }
+              if (p.phase === 'done-dev') { bar.style.width = '100%'; $('#auStatus', b).textContent = 'Downloaded (running from source, so not installed).'; }
+            });
+            const r = await guard(() => api.call('local:appUpdateInstall'));
+            off();
+            if (!r) { $$('.modal footer .btn').forEach((x) => { x.disabled = false; }); return false; }
+            if (!r.installed) return true;
+            return false; // keep the dialog up until Redline closes for the install
+          },
+        },
+    ],
+  });
+  updatePromptOpen = false;
+  return info;
+}
 
 // One-time warning when BeamNG or its mods folder can't be found on this PC.
 async function setupCheck() {
@@ -984,6 +1040,7 @@ async function appSettingsDialog() {
   const r = await modal({
     title: REMOTE.connected ? `App settings on ${REMOTE.hostName || REMOTE.host}` : 'App settings',
     body: `
+      <div class="toggle-row"><div><div class="t-title">Redline <span id="sAppVer" class="faint"></span></div><div class="t-sub">Checks GitHub for a new Redline version at launch and every hour</div></div><button class="btn sm" id="sAppUpd">${icon('refresh')}Check for updates</button></div>
       <div class="toggle-row"><div><div class="t-title">Auto-detect BeamNG</div><div class="t-sub">Finds the game through Steam libraries, BeamNG's own settings file and common folders</div></div><button class="btn sm primary" id="sDetect">${icon('search')}Auto-detect</button></div>
       ${folderField('sGame', 'BeamNG.drive install folder', settings.beamngPath, det(gameDir, 'Set it to show stock maps and vehicles with photos.'))}
       ${folderField('sMods', 'Your BeamNG mods folder', settings.modsPath, det(modsDir, 'Fine if BeamNG isn\'t installed here: the central mods library below is used instead.'))}
@@ -1003,6 +1060,13 @@ async function appSettingsDialog() {
       onClick: (b) => ({ beamngPath: $('#sGame', b).value.trim(), modsPath: $('#sMods', b).value.trim(), serversDir: $('#sServers', b).value.trim(), libraryPath: $('#sLib', b).value.trim(), libraryCollect: $('#sCollectMode', b).value }),
     }],
     onMount: (b) => {
+      api.call('local:appVersion').then((v) => { $('#sAppVer', b).textContent = `v${v.version}${v.portable ? ' (portable)' : ''}`; }).catch(() => {});
+      $('#sAppUpd', b).onclick = async (e) => {
+        const btn = e.currentTarget;
+        btn.innerHTML = '<div class="spinner"></div>Checking…';
+        await checkRedlineUpdate({ manual: true });
+        btn.innerHTML = icon('refresh') + 'Check for updates';
+      };
       $('#sCollect', b).onclick = async (e) => {
         const btn = e.currentTarget;
         btn.innerHTML = '<div class="spinner"></div>Collecting…';

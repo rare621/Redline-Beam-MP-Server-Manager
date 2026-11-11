@@ -65,7 +65,7 @@ async function load() {
   $('#tbServer').textContent = s ? `· ${s.name}` : '';
   if (!P.stock) {
     $('#body').innerHTML = `<div class="scan-box"><div style="font-weight:700;color:var(--text)">Loading BeamNG content…</div><div class="faint" id="scanLabel">Finding your BeamNG.drive install</div><div class="progress indeterminate" id="scanProgress"><div></div></div><div class="faint" style="font-size:12px">First time only. Photos are cached after this.</div></div>`;
-    P.stock = await api.call('content:stock').catch(() => ({ vehicles: [], maps: [], fallback: true }));
+    P.stock = await loadStock().catch(() => ({ vehicles: [], maps: [], fallback: true }));
   }
   await reloadServerData();
   loadThisPc();
@@ -184,7 +184,7 @@ function render() {
 }
 
 function fallbackNotice() {
-  return P.stock.fallback ? `<div class="notice warn">${icon('alert')}<div>BeamNG.drive was not found on this PC, so stock content is shown without photos. Set the install folder in the main window's App settings.</div></div>` : '';
+  return P.stock.fallback ? `<div class="notice warn">${icon('alert')}<div>${REMOTE.connected ? "BeamNG.drive isn't installed on the host or on this PC" : 'BeamNG.drive was not found on this PC'}, so stock vehicles and maps are shown by name without photos. Mod maps and vehicles still have photos.</div></div>` : '';
 }
 
 // ---------- maps ----------
@@ -414,8 +414,7 @@ function bindRemoveMod(root) {
       const file = b.dataset.rmmod;
       const mod = P.mods.find((m) => m.fileName === file);
       const extra = mod && (mod.vehicles?.length + mod.maps?.length > 1) ? `\n\nThis zip contains ${mod.vehicles.length} vehicle(s) and ${mod.maps.length} map(s); all of them will be removed.` : '';
-      if (!(await confirmBox('Remove from server?', `${file} will be moved to the Recycle Bin.${extra}`, { danger: true, ok: 'Remove' }))) return;
-      if (await guard(() => api.call('mods:remove', P.server, file), 'Removed') !== undefined) reloadServerData();
+      if (await removeModFromServer(P.server, file, extra)) reloadServerData();
     };
   }
 }

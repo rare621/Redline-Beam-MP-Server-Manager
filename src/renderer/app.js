@@ -9,6 +9,7 @@ const state = {
   players: [],
   filesRel: '',
   downloads: new Map(),
+  modContent: { id: null, maps: [], vehicles: [] }, // maps/vehicles inside the selected server's mods
 };
 const TABS = [
   ['dashboard', 'Dashboard', 'dashboard'],
@@ -73,7 +74,7 @@ async function setupCheck() {
   api.call('app:setupDone');
   if (go === 'settings') appSettingsDialog();
 }
-api.call('content:stock').then((s) => { state.stock = s; if (state.tab === 'dashboard') renderTab(); }).catch(() => {});
+loadStock().then((s) => { state.stock = s; if (state.tab === 'dashboard') renderTab(); }).catch(() => {});
 
 setInterval(tick, 1000);
 let pollN = 0;
@@ -189,10 +190,26 @@ function switchTab(tab) {
   renderTab();
 }
 
+// Stock map first, then maps inside the current server's mods (so mod maps get their photo too).
 function mapInfo(mapPath) {
   const id = (String(mapPath).match(/levels\/([^/]+)/i) || [])[1] || '';
-  const m = state.stock?.maps.find((x) => x.id.toLowerCase() === id.toLowerCase());
+  const same = (x) => x.id.toLowerCase() === id.toLowerCase();
+  const m = state.stock?.maps.find(same)
+    || (state.modContent.id === state.selected ? state.modContent.maps.find(same) : null);
   return m || { id, title: id ? id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : 'Unknown map', thumb: null, custom: true };
+}
+
+// Mods on a server with the maps/vehicles inside them (names + photos), cached for mapInfo.
+async function loadModContent(id) {
+  const mods = await api.call('mods:details', id).catch(() => []);
+  if (id === state.selected) {
+    state.modContent = {
+      id,
+      maps: mods.flatMap((x) => x.maps || []),
+      vehicles: mods.flatMap((x) => x.vehicles || []),
+    };
+  }
+  return mods;
 }
 
 function renderHeaderOnly() {
@@ -262,12 +279,17 @@ function renderTab() {
 // ---------- dashboard ----------
 async function renderDashboard(body) {
   const s = current();
-  const m = mapInfo(s.map);
   const dl = state.downloads.get(s.id);
-  const [meta, mods] = await Promise.all([api.call('meta:read', s.id).catch(() => ({ blockedVehicles: [] })), api.call('mods:list', s.id).catch(() => [])]);
+  const [meta, mods] = await Promise.all([api.call('meta:read', s.id).catch(() => ({ blockedVehicles: [] })), loadModContent(s.id)]);
   if (current()?.id !== s.id || state.tab !== 'dashboard') return;
-  const totalVeh = state.stock?.vehicles.length || 0;
-  const blocked = meta.blockedVehicles.length;
+  const m = mapInfo(s.map);
+  renderHeaderOnly(); // banner photo may come from a mod map
+  const vehThumb = state.stock?.vehicles.find((v) => v.model === 'pickup')?.thumb || state.stock?.vehicles.find((v) => v.thumb)?.thumb || state.modContent.vehicles.find((v) => v.thumb)?.thumb;
+  const modThumb = mods.find((x) => x.enabled && x.thumb)?.thumb || mods.find((x) => x.thumb)?.thumb;
+  // Stock vehicles plus vehicles from the server's enabled mods (what players can actually spawn).
+  const allModels = new Set([...(state.stock?.vehicles || []).map((v) => v.model), ...mods.filter((x) => x.enabled).flatMap((x) => (x.vehicles || []).map((v) => v.model))]);
+  const totalVeh = allModels.size;
+  const blocked = meta.blockedVehicles.filter((mdl) => allModels.has(mdl)).length;
   const enabledMods = mods.filter((x) => x.enabled).length;
   const running = s.status === 'running';
 
@@ -286,7 +308,7 @@ async function renderDashboard(body) {
       <div class="stat"><div class="glow" style="background:var(--blue)"></div><div class="lbl">${icon('users')}Players</div>
         <div class="val" id="statPlayers">${running ? state.players.length : 0}<small> / ${esc(s.maxPlayers)}</small></div><div class="sub">${s.private ? 'Private server' : 'Public server'}</div></div>
       <div class="stat"><div class="glow" style="background:var(--accent)"></div><div class="lbl">${icon('car')}Vehicles</div>
-        <div class="val">${totalVeh ? totalVeh - blocked : '—'}<small>${totalVeh ? ' / ' + totalVeh : ''}</small></div><div class="sub">${blocked ? `${blocked} switched off` : 'All stock vehicles allowed'}</div></div>
+        <div class="val">${totalVeh ? totalVeh - blocked : '—'}<small>${totalVeh ? ' / ' + totalVeh : ''}</small></div><div class="sub">${blocked ? `${blocked} switched off` : 'All vehicles allowed'}</div></div>
       <div class="stat"><div class="glow" style="background:#b69cff"></div><div class="lbl">${icon('box')}Mods</div>
         <div class="val">${enabledMods}<small>${mods.length !== enabledMods ? ' / ' + mods.length : ''}</small></div><div class="sub">${mods.length ? fmtBytes(mods.filter((x) => x.enabled).reduce((a, b) => a + b.size, 0)) + ' to download' : 'No mods installed'}</div></div>
     </div>
@@ -301,8 +323,8 @@ async function renderDashboard(body) {
         <div class="card"><h3>${icon('layers')}Content<span class="right"><button class="btn sm" id="openBrowser">${icon('external')}Open content browser</button></span></h3>
           <div class="content-tiles">
             <div class="ctile" data-pick="maps">${thumbHtml(m.thumb, 'map')}<div class="grow"><div class="t ellipsis">${esc(m.title)}</div><div class="s">Current map · click to change</div></div>${icon('chevron')}</div>
-            <div class="ctile" data-pick="vehicles">${thumbHtml(state.stock?.vehicles.find((v) => v.model === 'pickup')?.thumb || state.stock?.vehicles[0]?.thumb, 'car')}<div class="grow"><div class="t">Vehicles</div><div class="s">${totalVeh ? `${totalVeh - blocked} of ${totalVeh} allowed` : 'Choose allowed vehicles'}</div></div>${icon('chevron')}</div>
-            <div class="ctile" data-pick="mods">${thumbHtml(null, 'box')}<div class="grow"><div class="t">Mods</div><div class="s">${enabledMods} enabled · add maps, cars and more</div></div>${icon('chevron')}</div>
+            <div class="ctile" data-pick="vehicles">${thumbHtml(vehThumb, 'car')}<div class="grow"><div class="t">Vehicles</div><div class="s">${totalVeh ? `${totalVeh - blocked} of ${totalVeh} allowed` : 'Choose allowed vehicles'}</div></div>${icon('chevron')}</div>
+            <div class="ctile" data-pick="mods">${thumbHtml(modThumb, 'box')}<div class="grow"><div class="t">Mods</div><div class="s">${enabledMods} enabled · add maps, cars and more</div></div>${icon('chevron')}</div>
           </div>
         </div>
         <div class="card"><h3>${icon('server')}Server details</h3>
@@ -599,7 +621,7 @@ function readCfgForm() {
 
 async function renderConfig(body) {
   const s = current();
-  const cfg = await api.call('config:read', s.id);
+  const [cfg] = await Promise.all([api.call('config:read', s.id), state.modContent.id === s.id ? null : loadModContent(s.id)]);
   cfgOriginal = cfg;
   const G = cfg.General, M = cfg.Misc;
   const txt = (key, label, hint = '', type = 'text', extra = '') => {
@@ -711,8 +733,7 @@ async function renderMods(body) {
       t.closest('.lrow').classList.toggle('off', !t.checked);
     };
     for (const b of $$('[data-del]', list)) b.onclick = async () => {
-      if (!(await confirmBox('Remove mod?', `${b.dataset.del} will be moved to the Recycle Bin.`, { danger: true, ok: 'Remove' }))) return;
-      if (await guard(() => api.call('mods:remove', s.id, b.dataset.del), 'Mod removed') !== undefined) renderMods(body);
+      if (await removeModFromServer(s.id, b.dataset.del)) renderMods(body);
     };
   };
   $('#modSearch').oninput = draw;
@@ -866,7 +887,7 @@ function nextPort() {
 
 async function createServerDialog() {
   const defaultDir = await api.call('servers:defaultDir');
-  if (!state.stock) state.stock = await api.call('content:stock').catch(() => null);
+  if (!state.stock) state.stock = await loadStock().catch(() => null);
   const maps = state.stock?.maps || [];
   const gm = maps.find((m) => m.id === 'gridmap_v2') || maps[0];
   let selMap = gm ? { ...gm, source: 'stock' } : { title: 'Gridmap v2', mapPath: '/levels/gridmap_v2/info.json', source: 'stock' };
@@ -1027,13 +1048,13 @@ async function appSettingsDialog() {
     }
   }
   await guard(() => api.call('settings:set', r), 'Settings saved');
-  state.stock = await api.call('content:stock').catch(() => state.stock);
+  state.stock = await loadStock().catch(() => state.stock);
   renderMain();
 }
 
 // ---------- map browser pop-up (BeamNG maps + mod maps) ----------
 async function pickMapModal(currentPath, serverId) {
-  if (!state.stock) state.stock = await api.call('content:stock').catch(() => ({ maps: [] }));
+  if (!state.stock) state.stock = await loadStock().catch(() => ({ maps: [] }));
   const items = state.stock.maps.map((m) => ({ ...m, source: 'stock' }));
   let filter = 'all';
   let q = '';

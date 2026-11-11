@@ -63,8 +63,9 @@ input, textarea, select, button { font: inherit; color: inherit; }
   -webkit-app-region: drag; border-bottom: 1px solid var(--line); background: rgba(11, 13, 18, 0.6); backdrop-filter: blur(12px);
   position: relative; z-index: 20;
 }
-.titlebar .logo { width: 22px; height: 22px; }
-.titlebar .app-name { font-weight: 700; letter-spacing: 0.2px; font-size: 13px; }
+.titlebar { padding-right: 150px; } /* keep clear of the Windows minimize/maximize/close buttons */
+.titlebar .logo, .titlebar #tbLogo { width: 22px; height: 22px; flex: none; }
+.titlebar .app-name { font-weight: 700; letter-spacing: 0.2px; font-size: 13px; min-width: 0; flex: 0 1 auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .titlebar .app-name span { color: var(--text-3); font-weight: 500; }
 .titlebar .no-drag { -webkit-app-region: no-drag; }
 
@@ -219,7 +220,7 @@ a:hover { text-decoration: underline; }
 /* remote badge in title bar */
 .no-drag { -webkit-app-region: no-drag; }
 .remote-badge {
-  margin-left: 18px; display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 4px 0 12px; border-radius: 99px; font-size: 12px;
+  margin-left: auto; flex: none; white-space: nowrap; display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 4px 0 12px; border-radius: 99px; font-size: 12px;
   background: rgba(77, 163, 255, 0.12); border: 1px solid rgba(77, 163, 255, 0.35); color: #a9d1ff; animation: fadeIn 0.3s;
 }
 .remote-badge b { color: #fff; }

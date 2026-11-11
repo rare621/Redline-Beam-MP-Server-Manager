@@ -61,6 +61,8 @@ Build the installers with `npm run dist` (output in `dist/`).
     Files you add from the remote PC are uploaded to the host.
   - While connected, a **This PC** section (Maps, Vehicles, Mods and the New Server map browser) lists the remote
     computer's own BeamNG mods and tracks; **Upload** sends them to the host with a progress bar.
+  - Stock vehicles and maps show the real names and photos from **this PC's** BeamNG install, even if the host
+    doesn't have BeamNG (nothing is copied to the host).
   - Recent connections are saved; "Remember password" stores it encrypted for your Windows account.
     The remote PC keeps no copies of the host's files or photos.
   - Same home network only. The password is never sent over the network, and repeated wrong guesses are locked out.
@@ -71,5 +73,5 @@ Build the installers with `npm run dist` (output in `dist/`).
 - Vehicle on/off and the player list use a small helper plugin the app installs into
   `Resources/Server/BeamMPManager` each time a server starts.
 - Disabled mods are moved to `<server>/.manager/disabled_mods` so BeamMP doesn't load them.
-- Deleting mods, plugins, files or servers sends them to the Recycle Bin.
+- **Removing a mod** deletes it from the server for good, but your copy is always kept: in the central mods library or your BeamNG mods folder (if it was only on the server, it is saved to the library first). Deleting plugins, files or servers sends them to the Recycle Bin.
 - Photos are read from your BeamNG.drive install and cached in `%APPDATA%/Redline/thumbs`.

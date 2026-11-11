@@ -313,6 +313,8 @@ function registerIpc() {
   handle('library:dir', () => content.centralLibraryDir());
   // This computer's own BeamNG mods (used while controlling a remote host, to upload from here).
   handle('local:library', () => content.listUserLibrary({ beamngOnly: true }));
+  // This computer's own stock BeamNG content (real names + photos), shown while controlling a host.
+  handle('local:stock', (force) => content.getStock(force));
   handle('library:count', (dir) => { try { return fs.readdirSync(dir || content.centralLibraryDir()).length; } catch { return 0; } });
   // Move the central library to a new folder, then remove the old folder once it's empty.
   handle('library:move', async (newDir) => {
@@ -354,7 +356,25 @@ function registerIpc() {
   });
   handle('app:setupDone', () => { store.settings.setupChecked = true; store.save(); });
   handle('mods:setEnabled', (id, name, en) => servers.setModEnabled(id, name, en));
-  handle('mods:remove', (id, name) => servers.removeMod(id, name));
+  // Remove = delete from the server for good, but never lose the mod: keep (or make) a copy in
+  // the BeamNG mods folder or the central library first.
+  handle('mods:remove', (id, name) => servers.removeMod(id, name, async (serverFile) => {
+    const base = path.basename(serverFile).toLowerCase();
+    const size = fs.statSync(serverFile).size;
+    const lib = await content.listUserLibrary().catch(() => ({ mods: [] }));
+    const existing = lib.mods.find((m) => m.fileName.toLowerCase() === base && m.size === size);
+    if (existing) return path.dirname(existing.file);
+    const libDir = content.centralLibraryDir();
+    let dest = path.join(libDir, path.basename(serverFile));
+    if (fs.existsSync(dest)) dest = path.join(libDir, `${path.basename(serverFile, '.zip')} (${Date.now()}).zip`);
+    try { await fs.promises.link(serverFile, dest); } catch { await fs.promises.copyFile(serverFile, dest); }
+    return libDir;
+  }));
+  handle('mods:keptWhere', async (id, name) => {
+    const lib = await content.listUserLibrary().catch(() => ({ mods: [] }));
+    const hit = lib.mods.find((m) => m.fileName.toLowerCase() === String(name).toLowerCase());
+    return hit ? path.dirname(hit.file) : content.centralLibraryDir();
+  });
   handle('mods:library', () => content.listUserLibrary());
 
   handle('plugins:list', (id) => servers.listPlugins(id));

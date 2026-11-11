@@ -272,6 +272,13 @@ class ContentService {
   }
 
   fallbackStock() {
+    // Prefer the bundled list of real stock names (text only, no game assets).
+    try {
+      const names = JSON.parse(fs.readFileSync(path.join(__dirname, 'stock-names.json'), 'utf8'));
+      const vehicles = names.vehicles.map((v) => ({ ...v, thumb: null })).sort((a, b) => a.name.localeCompare(b.name));
+      const maps = names.maps.map((m) => ({ ...m, description: '', thumb: null, mapPath: `/levels/${m.id}/info.json` })).sort((a, b) => a.title.localeCompare(b.title));
+      return { gameDir: null, vehicles, maps, fallback: true };
+    } catch { /* fall back to the short built-in list */ }
     const vehicles = [];
     for (const [category, list] of Object.entries(FALLBACK_VEHICLES)) {
       for (const model of list.split(' ')) vehicles.push({ model, name: prettify(model), brand: '', category, thumb: null });

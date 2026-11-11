@@ -252,6 +252,30 @@ api.on('maps:reconciled', (e) => {
 });
 api.on('library:sync', (e) => toast(`${e.added.length} mod${e.added.length > 1 ? 's' : ''} copied into your central mods library`, 'success', 'Mods library updated'));
 
+// Remove a mod from a server for good; the copy in the mods library / BeamNG mods folder stays.
+async function removeModFromServer(serverId, fileName, extra = '') {
+  const kept = await api.call('mods:keptWhere', serverId, fileName).catch(() => null);
+  const ok = await confirmBox('Remove from server?',
+    `${fileName} will be deleted from this server, so players no longer download it.${extra}\n\nYour copy stays in:\n${kept || 'your mods library'}`,
+    { danger: true, ok: 'Remove from server' });
+  if (!ok) return false;
+  const r = await guard(() => api.call('mods:remove', serverId, fileName));
+  if (!r) return false;
+  toast(`Removed from the server. Your copy is in ${r.keptAt}${r.restartNeeded ? ' · restart the server to apply' : ''}`, 'success', 'Mod removed');
+  return true;
+}
+
+// Stock BeamNG maps/vehicles. While controlling a host, use this PC's own BeamNG install for
+// real names and photos when it has one (nothing is copied to or from the host).
+async function loadStock(force) {
+  await remoteReady;
+  if (REMOTE.connected) {
+    const local = await api.call('local:stock', force).catch(() => null);
+    if (local && !local.fallback) return { ...local, fromThisPc: true };
+  }
+  return api.call('content:stock', force);
+}
+
 // Pick a folder on the computer that runs the servers: a native dialog locally,
 // or a browser of the host's folders when controlling it remotely.
 async function chooseHostFolder(title, start) {

@@ -410,14 +410,17 @@ class ServerManager extends EventEmitter {
     return { restartNeeded: this.procs.has(id) };
   }
 
-  async removeMod(id, fileName) {
+  // Permanently deletes the server's copy of a mod. `keepCopy(file)` is called first and must
+  // make sure a copy exists outside the server (central library / BeamNG mods); it returns where.
+  async removeMod(id, fileName, keepCopy) {
     const s = this.get(id);
-    for (const dir of [this.clientDir(s), this.disabledDir(s)]) {
-      const p = path.join(dir, path.basename(fileName));
-      if (fs.existsSync(p)) await shell.trashItem(p);
-    }
+    const name = path.basename(fileName);
+    const copies = [this.clientDir(s), this.disabledDir(s)].map((d) => path.join(d, name)).filter((p) => fs.existsSync(p));
+    if (!copies.length) throw new Error(`${name} is not on this server`);
+    const keptAt = keepCopy ? await keepCopy(copies[0]) : null;
+    for (const p of copies) await fsp.unlink(p);
     this.emit('changed', id);
-    return { restartNeeded: this.procs.has(id) };
+    return { restartNeeded: this.procs.has(id), keptAt };
   }
 
   // ---------- server plugins ----------

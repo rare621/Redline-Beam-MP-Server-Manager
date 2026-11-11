@@ -1,0 +1,1007 @@
+{
+ "note": "Names of stock BeamNG.drive content, used when the game is not installed. No game assets.",
+ "vehicles": [
+  {
+   "model": "anticut",
+   "name": "Anti-Cut Device",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "autobello",
+   "name": "Autobello Piccolina",
+   "brand": "Autobello",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "midtruck",
+   "name": "Autobello Stambecco",
+   "brand": "Autobello",
+   "type": "Truck",
+   "category": "truck"
+  },
+  {
+   "model": "haybale",
+   "name": "Bales",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "ball",
+   "name": "Ball",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "tub",
+   "name": "Bathtub",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "trashbin",
+   "name": "Bin",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "bollard",
+   "name": "Bollard",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "boxutility",
+   "name": "Box Utility Trailer",
+   "brand": "",
+   "type": "Trailer",
+   "category": "trailer"
+  },
+  {
+   "model": "bastion",
+   "name": "Bruckell Bastion",
+   "brand": "Bruckell",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "legran",
+   "name": "Bruckell LeGran",
+   "brand": "Bruckell",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "moonhawk",
+   "name": "Bruckell Moonhawk",
+   "brand": "Bruckell",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "nine",
+   "name": "Bruckell Nine",
+   "brand": "Bruckell",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "burnside",
+   "name": "Burnside Special",
+   "brand": "Burnside",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "cardboard_box",
+   "name": "Cardboard Box",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "vivace",
+   "name": "Cherrier FCV",
+   "brand": "Cherrier",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "percheron",
+   "name": "Cherrier Percheron",
+   "brand": "Cherrier",
+   "type": "Truck",
+   "category": "truck"
+  },
+  {
+   "model": "christmas_tree",
+   "name": "Christmas Tree",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "blockwall",
+   "name": "Cinderblock Wall",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "bolide",
+   "name": "Civetta Bolide",
+   "brand": "Civetta",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "scintilla",
+   "name": "Civetta Scintilla",
+   "brand": "Civetta",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "barrier",
+   "name": "Concrete Barrier",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "wall",
+   "name": "Concrete Retaining Wall",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "cones",
+   "name": "Cones",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "crowdbarrier",
+   "name": "Crowd Barrier",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "delineator",
+   "name": "Delineator Post",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "cargotrailer",
+   "name": "Enclosed Cargo Trailer",
+   "brand": "",
+   "type": "Trailer",
+   "category": "trailer"
+  },
+  {
+   "model": "engine_props",
+   "name": "Engines",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "etk800",
+   "name": "ETK 800-Series",
+   "brand": "ETK",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "etki",
+   "name": "ETK I-Series",
+   "brand": "ETK",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "etkc",
+   "name": "ETK K-Series",
+   "brand": "ETK",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "flipramp",
+   "name": "Flip Ramp",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "eu_trailers",
+   "name": "FPU European Truck Trailers",
+   "brand": "FPU",
+   "type": "Trailer",
+   "category": "trailer"
+  },
+  {
+   "model": "atv",
+   "name": "FPU Wydra",
+   "brand": "FPU",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "fridge",
+   "name": "Fridge",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "gate",
+   "name": "Gate",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "barstow",
+   "name": "Gavril Barstow",
+   "brand": "Gavril",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "bluebuck",
+   "name": "Gavril Bluebuck",
+   "brand": "Gavril",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "pickup",
+   "name": "Gavril D-Series",
+   "brand": "Gavril",
+   "type": "Truck",
+   "category": "truck"
+  },
+  {
+   "model": "fullsize",
+   "name": "Gavril Grand Marshal",
+   "brand": "Gavril",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "van",
+   "name": "Gavril H-Series",
+   "brand": "Gavril",
+   "type": "Truck",
+   "category": "truck"
+  },
+  {
+   "model": "md_series",
+   "name": "Gavril MD-Series",
+   "brand": "Gavril",
+   "type": "Truck",
+   "category": "truck"
+  },
+  {
+   "model": "roamer",
+   "name": "Gavril Roamer",
+   "brand": "Gavril",
+   "type": "Truck",
+   "category": "truck"
+  },
+  {
+   "model": "us_semi",
+   "name": "Gavril T-Series",
+   "brand": "Gavril",
+   "type": "Truck",
+   "category": "truck"
+  },
+  {
+   "model": "flail",
+   "name": "Giant Flail",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "utv",
+   "name": "Hirochi Aurata",
+   "brand": "Hirochi",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "dumptruck",
+   "name": "Hirochi HT-55",
+   "brand": "Hirochi",
+   "type": "Heavy Machinery",
+   "category": "truck"
+  },
+  {
+   "model": "sbr",
+   "name": "Hirochi SBR4",
+   "brand": "Hirochi",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "sunburst2",
+   "name": "Hirochi Sunburst",
+   "brand": "Hirochi",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "wl40",
+   "name": "Hirochi WL-40",
+   "brand": "Hirochi",
+   "type": "Heavy Machinery",
+   "category": "truck"
+  },
+  {
+   "model": "bx",
+   "name": "Ibishu BX-Series",
+   "brand": "Ibishu",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "covet",
+   "name": "Ibishu Covet",
+   "brand": "Ibishu",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "hopper",
+   "name": "Ibishu Hopper",
+   "brand": "Ibishu",
+   "type": "Truck",
+   "category": "truck"
+  },
+  {
+   "model": "miramar",
+   "name": "Ibishu Miramar",
+   "brand": "Ibishu",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "midsize",
+   "name": "Ibishu Pessima",
+   "brand": "Ibishu",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "pessima",
+   "name": "Ibishu Pessima",
+   "brand": "Ibishu",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "pigeon",
+   "name": "Ibishu Pigeon",
+   "brand": "Ibishu",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "wigeon",
+   "name": "Ibishu Wigeon",
+   "brand": "Ibishu",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "inflated_mat",
+   "name": "Inflated Mat",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "kickplate",
+   "name": "Kick Plate",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "large_angletester",
+   "name": "Large Angle Tester",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "boxutility_large",
+   "name": "Large Box Utility Trailer",
+   "brand": "",
+   "type": "Trailer",
+   "category": "trailer"
+  },
+  {
+   "model": "large_bridge",
+   "name": "Large Bridge",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "large_cannon",
+   "name": "Large Cannon",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "large_crusher",
+   "name": "Large Crusher",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "large_hamster_wheel",
+   "name": "Large Hamster Wheel",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "large_roller",
+   "name": "Large Roller",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "large_spinner",
+   "name": "Large Spinner",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "large_tire",
+   "name": "Large Tires",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "logs",
+   "name": "Logs",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "couch",
+   "name": "Lounge Set",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "marble_block",
+   "name": "Marble Block",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "mattress",
+   "name": "Mattress",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "metal_box",
+   "name": "Metal Box",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "steel_coil",
+   "name": "Metal Coil",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "metal_ramp",
+   "name": "Metal Ramp",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "cannon",
+   "name": "Old Cannon",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "barrier_plastic",
+   "name": "Plastic Barrier",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "porta_potty",
+   "name": "Porta Potty",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "pressure_ball",
+   "name": "Pressure Ball",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "rallysigns",
+   "name": "Rally Signs",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "containerTrailer",
+   "name": "Randolph Container Trailer",
+   "brand": "Randolph",
+   "type": "Trailer",
+   "category": "trailer"
+  },
+  {
+   "model": "dryvan",
+   "name": "Randolph Dry Van Trailer",
+   "brand": "Randolph",
+   "type": "Trailer",
+   "category": "trailer"
+  },
+  {
+   "model": "flatbed",
+   "name": "Randolph Flatbed Trailer",
+   "brand": "Randolph",
+   "type": "Trailer",
+   "category": "trailer"
+  },
+  {
+   "model": "frameless_dump",
+   "name": "Randolph Frameless Dump Trailer",
+   "brand": "Randolph",
+   "type": "Trailer",
+   "category": "trailer"
+  },
+  {
+   "model": "log_trailer",
+   "name": "Randolph Log Trailer",
+   "brand": "Randolph",
+   "type": "Trailer",
+   "category": "trailer"
+  },
+  {
+   "model": "tanker",
+   "name": "Randolph Tanker Trailer",
+   "brand": "Randolph",
+   "type": "Trailer",
+   "category": "trailer"
+  },
+  {
+   "model": "dolly",
+   "name": "Randolph Trailer Dolly",
+   "brand": "Randolph",
+   "type": "Trailer",
+   "category": "trailer"
+  },
+  {
+   "model": "roadsigns",
+   "name": "Road Sign",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "rock_pile",
+   "name": "Rock Pile",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "rocks",
+   "name": "Rocks & Boulders",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "rollover",
+   "name": "Rollover Sled",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "roof_crush_tester",
+   "name": "Roof Crusher Tester",
+   "brand": "",
+   "type": "Debug",
+   "category": "other"
+  },
+  {
+   "model": "sawhorse",
+   "name": "Saw Horse Barrier",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "shipping_container",
+   "name": "Shipping Container",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "simple_traffic",
+   "name": "Simplified Traffic Vehicles",
+   "brand": "",
+   "type": "Traffic",
+   "category": "other"
+  },
+  {
+   "model": "tsfb",
+   "name": "Small Flatbed Trailer",
+   "brand": "",
+   "type": "Trailer",
+   "category": "trailer"
+  },
+  {
+   "model": "rallytape",
+   "name": "Soft Track Barrier",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "lansdale",
+   "name": "Soliad Lansdale",
+   "brand": "Soliad",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "wendover",
+   "name": "Soliad Wendover",
+   "brand": "Soliad",
+   "type": "Car",
+   "category": "car"
+  },
+  {
+   "model": "racetruck",
+   "name": "SP Dunekicker",
+   "brand": "SP",
+   "type": "Truck",
+   "category": "truck"
+  },
+  {
+   "model": "rockbouncer",
+   "name": "SP Rockbasher",
+   "brand": "SP",
+   "type": "Truck",
+   "category": "truck"
+  },
+  {
+   "model": "spikestrip",
+   "name": "Spike Strip",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "barrels",
+   "name": "Steel Barrel",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "streetlight",
+   "name": "Street Light",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "suspensionbridge",
+   "name": "Suspension Bridge",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "large_tilt",
+   "name": "Tilt Board",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "tiltdeck",
+   "name": "Tilt Deck Trailer",
+   "brand": "",
+   "type": "Trailer",
+   "category": "trailer"
+  },
+  {
+   "model": "tirestacks",
+   "name": "Tire Stacks",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "tirewall",
+   "name": "Tire Wall",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "rallyflags",
+   "name": "Track Flags",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "trafficbarrel",
+   "name": "Traffic Barrel",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "tube",
+   "name": "Traffic Tube",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "trampoline",
+   "name": "Trampoline",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "caravan",
+   "name": "Travel Trailer",
+   "brand": "",
+   "type": "Trailer",
+   "category": "trailer"
+  },
+  {
+   "model": "tv",
+   "name": "TV",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "dino",
+   "name": "Tyrannos Dinosaur Mascot",
+   "brand": "Tyrannos",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "piano",
+   "name": "Upright Piano",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "unicycle",
+   "name": "Walking",
+   "brand": "",
+   "type": "Prop",
+   "category": "other"
+  },
+  {
+   "model": "weightpad",
+   "name": "Weight Pad",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "citybus",
+   "name": "Wentward DT40L",
+   "brand": "Wentward",
+   "type": "Truck",
+   "category": "truck"
+  },
+  {
+   "model": "testroller",
+   "name": "Wheel Roller",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "woodcrate",
+   "name": "Wood Crate",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "woodplanks",
+   "name": "Wood Planks",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  },
+  {
+   "model": "chair",
+   "name": "Wooden Chair",
+   "brand": "",
+   "type": "Prop",
+   "category": "prop"
+  }
+ ],
+ "maps": [
+  {
+   "id": "automation_test_track",
+   "title": "Automation Test Track",
+   "size": [
+    2048,
+    2048
+   ]
+  },
+  {
+   "id": "Cliff",
+   "title": "Cliff",
+   "size": [
+    2048,
+    2048
+   ]
+  },
+  {
+   "id": "derby",
+   "title": "Derby Arenas",
+   "size": [
+    1024,
+    1024
+   ]
+  },
+  {
+   "id": "east_coast_usa",
+   "title": "East Coast, USA",
+   "size": [
+    2048,
+    2048
+   ]
+  },
+  {
+   "id": "driver_training",
+   "title": "ETK Driver Experience Center",
+   "size": [
+    1024,
+    1024
+   ]
+  },
+  {
+   "id": "glow_city",
+   "title": "Glow City",
+   "size": [
+    1024,
+    1024
+   ]
+  },
+  {
+   "id": "smallgrid",
+   "title": "Grid, Small, Pure",
+   "size": null
+  },
+  {
+   "id": "gridmap_v2",
+   "title": "Gridmap v2",
+   "size": [
+    2048,
+    2048
+   ]
+  },
+  {
+   "id": "hirochi_raceway",
+   "title": "Hirochi Raceway",
+   "size": [
+    1536,
+    1536
+   ]
+  },
+  {
+   "id": "Industrial",
+   "title": "Industrial Site",
+   "size": [
+    1024,
+    1024
+   ]
+  },
+  {
+   "id": "italy",
+   "title": "Italy",
+   "size": [
+    4096,
+    4096
+   ]
+  },
+  {
+   "id": "johnson_valley",
+   "title": "Johnson Valley",
+   "size": [
+    3072,
+    3072
+   ]
+  },
+  {
+   "id": "jungle_rock_island",
+   "title": "Jungle Rock Island",
+   "size": [
+    2048,
+    2048
+   ]
+  },
+  {
+   "id": "small_island",
+   "title": "Small Island, USA",
+   "size": [
+    1024,
+    1024
+   ]
+  },
+  {
+   "id": "Utah",
+   "title": "Utah, USA",
+   "size": [
+    2048,
+    2048
+   ]
+  },
+  {
+   "id": "west_coast_usa",
+   "title": "West Coast, USA",
+   "size": [
+    2048,
+    2048
+   ]
+  }
+ ]
+}

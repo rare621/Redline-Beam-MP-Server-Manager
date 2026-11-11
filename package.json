@@ -1,7 +1,7 @@
 {
   "name": "beammp-server-manager",
   "productName": "Redline",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Redline - a modern BeamMP server manager",
   "main": "src/main/main.js",
   "scripts": {

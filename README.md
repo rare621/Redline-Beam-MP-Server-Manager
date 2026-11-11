@@ -1,6 +1,22 @@
+<p align="center"><img src="build/icon.png" width="112" alt="Redline icon"></p>
+
 # Redline: BeamMP Server Manager
 
 A desktop app for creating, configuring and running BeamMP servers.
+
+**[⬇ Download the latest release](https://github.com/rare621/Redline-Beam-MP-Server-Manager/releases/latest)**
+
+![Server dashboard](docs/screenshots/dashboard.png)
+
+## Screenshots
+
+| Maps with photos | Vehicles: switch any off |
+| --- | --- |
+| ![Content browser: maps](docs/screenshots/content-maps.png) | ![Content browser: vehicles](docs/screenshots/content-vehicles.png) |
+| **Mods on the server and in your library** | **Choose a map when creating a server** |
+| ![Content browser: mods](docs/screenshots/content-mods.png) | ![New server map browser](docs/screenshots/new-server-maps.png) |
+| **Server settings** | **Remote management** |
+| ![Server settings](docs/screenshots/server-settings.png) | ![Remote management](docs/screenshots/remote.png) |
 
 ## Download
 Get the latest version from the [Releases page](https://github.com/rare621/Redline-Beam-MP-Server-Manager/releases/latest):

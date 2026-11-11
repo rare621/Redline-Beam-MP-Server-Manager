@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
-const EVENTS = new Set(['server:log', 'server:status', 'server:changed', 'server:download', 'content:progress', 'picker:open', 'remote:state', 'remote:upload', 'library:sync', 'maps:reconciled', 'server:update', 'app:update-progress']);
+const EVENTS = new Set(['server:log', 'server:status', 'server:changed', 'server:download', 'content:progress', 'picker:open', 'remote:state', 'remote:upload', 'library:sync', 'maps:reconciled', 'server:update', 'app:update-progress', 'vehicles:reconciled']);
 
 contextBridge.exposeInMainWorld('api', {
   async call(channel, ...args) {

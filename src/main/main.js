@@ -230,6 +230,35 @@ function syncToLibrary(ids, reason) {
 // Map-only mod zips that don't contain the server's current map are switched off
 // (moved out of Resources/Client) so players don't download unused tracks. The zip
 // holding the current map is switched on. Mods that also contain vehicles are left alone.
+// ---------- vehicle on/off drives whether a vehicle mod is downloaded ----------
+// A vehicle-only mod whose vehicles are ALL switched off is switched off too (players stop
+// downloading it). It comes back as soon as one of its vehicles is switched on again. Only mods
+// Redline switched off itself are switched back on; mods with maps are left to reconcileMapMods.
+async function reconcileVehicleMods(id) {
+  const meta = servers.readMeta(id);
+  const blocked = new Set(meta.blockedVehicles || []);
+  const auto = new Set((meta.autoDisabledMods || []).map((f) => f.toLowerCase()));
+  const files = servers.listModFiles(id);
+  const details = await content.scanMods(files.map((f) => f.file));
+  const disabled = [];
+  const enabled = [];
+  for (const f of files) {
+    const d = details.find((x) => x.file === f.file);
+    if (!d || !d.vehicles?.length || d.maps?.length) continue;
+    const allOff = d.vehicles.every((v) => blocked.has(v.model));
+    const key = f.fileName.toLowerCase();
+    try {
+      if (allOff && f.enabled) { await servers.setModEnabled(id, f.fileName, false); auto.add(key); disabled.push(d.title || f.fileName); }
+      if (!allOff && !f.enabled && auto.has(key)) { await servers.setModEnabled(id, f.fileName, true); auto.delete(key); enabled.push(d.title || f.fileName); }
+      if (!allOff && f.enabled) auto.delete(key);
+    } catch (e) { console.warn('vehicle mod reconcile', f.fileName, e.message); }
+  }
+  const autoList = files.filter((f) => auto.has(f.fileName.toLowerCase())).map((f) => f.fileName);
+  if (JSON.stringify(autoList) !== JSON.stringify(meta.autoDisabledMods || [])) await servers.writeMeta(id, { autoDisabledMods: autoList });
+  if (disabled.length || enabled.length) broadcast('vehicles:reconciled', { id, disabled, enabled });
+  return { disabled, enabled };
+}
+
 async function reconcileMapMods(id) {
   const files = servers.listModFiles(id);
   const details = await content.scanMods(files.map((f) => f.file));
@@ -362,7 +391,11 @@ function registerIpc() {
   });
   handle('config:writeRaw', (id, text) => servers.writeRawConfig(id, text));
   handle('meta:read', (id) => servers.readMeta(id));
-  handle('vehicles:setBlocked', (id, models) => servers.setBlockedVehicles(id, models));
+  handle('vehicles:setBlocked', async (id, models) => {
+    const meta = await servers.setBlockedVehicles(id, models);
+    await reconcileVehicleMods(id);
+    return meta;
+  });
 
   handle('mods:list', (id) => servers.listModFiles(id));
   handle('mods:details', async (id) => {
@@ -370,9 +403,9 @@ function registerIpc() {
     const details = await content.scanMods(files.map((f) => f.file));
     return files.map((f) => ({ ...f, ...(details.find((d) => d.file === f.file) || {}), enabled: f.enabled }));
   });
-  handle('mods:add', async (id, files) => { const r = await servers.addMods(id, files); syncToLibrary([id], 'mod added'); await reconcileMapMods(id); return r; });
+  handle('mods:add', async (id, files) => { const r = await servers.addMods(id, files); syncToLibrary([id], 'mod added'); await reconcileMapMods(id); await reconcileVehicleMods(id); return r; });
   // Same as mods:add, for files already on the host (e.g. its library): never uploads.
-  handle('mods:addHost', async (id, files) => { const r = await servers.addMods(id, files); syncToLibrary([id], 'mod added'); await reconcileMapMods(id); return r; });
+  handle('mods:addHost', async (id, files) => { const r = await servers.addMods(id, files); syncToLibrary([id], 'mod added'); await reconcileMapMods(id); await reconcileVehicleMods(id); return r; });
   handle('library:dir', () => content.centralLibraryDir());
   // This computer's own BeamNG mods (used while controlling a remote host, to upload from here).
   handle('local:library', () => content.listUserLibrary());
@@ -423,7 +456,21 @@ function registerIpc() {
     return { show: !gameDir || !modsDir, gameDir, modsDir, libraryDir: content.centralLibraryDir() };
   });
   handle('app:setupDone', () => { store.settings.setupChecked = true; store.save(); });
-  handle('mods:setEnabled', (id, name, en) => servers.setModEnabled(id, name, en));
+  handle('mods:setEnabled', async (id, name, en) => {
+    const r = await servers.setModEnabled(id, name, en);
+    // A manual change wins: forget any automatic switch-off for this mod.
+    const meta = servers.readMeta(id);
+    const auto = (meta.autoDisabledMods || []).filter((f) => f.toLowerCase() !== String(name).toLowerCase());
+    const patch = { autoDisabledMods: auto };
+    if (en) {
+      // Switching a mod back on also switches its vehicles back on, so the two never disagree.
+      const d = (await content.scanMods([path.join(servers.clientDir(servers.get(id)), path.basename(name))]))[0];
+      const models = new Set((d?.vehicles || []).map((v) => v.model));
+      if (models.size) patch.blockedVehicles = (meta.blockedVehicles || []).filter((m) => !models.has(m));
+    }
+    await servers.writeMeta(id, patch);
+    return r;
+  });
   // Remove = delete from the server for good, but never lose the mod: keep (or make) a copy in
   // the BeamNG mods folder or the central library first.
   handle('mods:remove', (id, name) => servers.removeMod(id, name, async (serverFile) => {
@@ -610,6 +657,13 @@ app.whenReady().then(() => {
       });
     }, 2000);
   }
+  // Apply the vehicle on/off ⇄ mod download link to existing servers (stopped ones only).
+  setTimeout(async () => {
+    for (const s of store.servers) {
+      if (servers.procs.has(s.id) || !fs.existsSync(s.path)) continue;
+      await reconcileVehicleMods(s.id).catch((e) => console.warn('vehicle reconcile', e.message));
+    }
+  }, 4000);
   // First start after this update: collect mods from servers that were already added.
   if (!store.settings.librarySynced) {
     setTimeout(() => syncToLibrary(store.servers.map((s) => s.id), 'first start').then(() => {

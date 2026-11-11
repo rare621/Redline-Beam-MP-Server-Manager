@@ -246,6 +246,10 @@ api.on('remote:upload', (u) => {
     setTimeout(() => { card.classList.add('out'); setTimeout(() => card.remove(), 400); }, 7000);
   }
 });
+api.on('vehicles:reconciled', (e) => {
+  if (e.disabled.length) toast(`All their vehicles are switched off, so players won't download them: ${e.disabled.join(', ')}`, 'info', 'Mods switched off');
+  if (e.enabled.length) toast(`A vehicle was switched back on, so this mod is downloaded again: ${e.enabled.join(', ')}`, 'success', 'Mod switched on');
+});
 api.on('maps:reconciled', (e) => {
   if (e.disabled.length) toast(`So players only download the map in use, these were switched off: ${e.disabled.join(', ')}`, 'info', 'Unused maps switched off');
   if (e.enabled.length) toast(`Switched on: ${e.enabled.join(', ')}`, 'success', 'Map mod enabled');

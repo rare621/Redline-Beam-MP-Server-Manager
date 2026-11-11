@@ -759,8 +759,9 @@ async function renderMods(body) {
     <div class="list" id="modList"><div class="row faint"><div class="spinner"></div>Reading mods…</div></div>`;
   $('#modAdd').onclick = async () => { const files = await api.call('dialog:openFiles', { zip: true, title: 'Add BeamNG mods (.zip)' }); if (files.length) addMods(files); };
   $('#modBrowser').onclick = () => api.call('ui:openPicker', s.id, 'mods');
-  const mods = await api.call('mods:details', s.id);
+  const [mods, meta] = await Promise.all([api.call('mods:details', s.id), api.call('meta:read', s.id).catch(() => ({}))]);
   if (current()?.id !== s.id || state.tab !== 'mods') return;
+  const autoOff = new Set((meta.autoDisabledMods || []).map((f) => f.toLowerCase()));
   const list = $('#modList');
   const draw = () => {
     const q = $('#modSearch').value.toLowerCase();
@@ -777,6 +778,7 @@ async function renderMods(body) {
         ${thumbHtml(m.thumb, m.kind === 'map' ? 'map' : m.kind === 'vehicle' ? 'car' : 'box')}
         <div class="grow"><div class="t ellipsis">${esc(m.title || m.fileName)}</div>
           <div class="s ellipsis">${esc(m.fileName)} · ${fmtBytes(m.size)}${m.vehicles?.length ? ` · ${m.vehicles.length} vehicle${m.vehicles.length > 1 ? 's' : ''}` : ''}${m.maps?.length ? ` · ${m.maps.length} map${m.maps.length > 1 ? 's' : ''}` : ''}</div></div>
+        ${!m.enabled && autoOff.has(m.fileName.toLowerCase()) ? `<span class="pill" title="All of this mod's vehicles are switched off in Vehicles, so players don't download it. Switch a vehicle (or this mod) back on to restore it.">${icon('car')}Vehicles switched off</span>` : ''}
         <span class="pill ${m.kind === 'map' ? 'blue' : m.kind === 'vehicle' ? 'accent' : ''}">${{ map: 'Map', vehicle: 'Vehicle', mixed: 'Map + vehicles', other: 'Mod' }[m.kind] || 'Mod'}</span>
         <label class="switch" title="${m.enabled ? 'Enabled' : 'Disabled'}"><input type="checkbox" data-toggle="${esc(m.fileName)}" ${m.enabled ? 'checked' : ''}><span class="track"></span></label>
         <div class="acts"><button class="btn sm icon ghost" data-del="${esc(m.fileName)}" title="Remove">${icon('trash')}</button></div>

@@ -391,7 +391,7 @@ function renderModsTab(body) {
         ${thumbHtml(m.thumb, m.kind === 'map' ? 'map' : m.kind === 'vehicle' ? 'car' : 'box')}
         <div class="tag"><span class="pill ${kindCls[m.kind] || ''}">${kindLabel[m.kind] || 'Mod'}</span></div>
         <div class="corner hover-only"><button class="btn sm icon danger" data-rmmod="${esc(m.fileName)}" title="Remove from server">${icon('trash')}</button></div>
-        <div class="meta row"><div class="grow"><div class="t ellipsis">${esc(m.title)}</div><div class="s ellipsis">${esc(desc(m))}</div></div>
+        <div class="meta row"><div class="grow"><div class="t ellipsis">${esc(m.title)}</div><div class="s ellipsis">${!m.enabled && (P.meta.autoDisabledMods || []).some((f) => f.toLowerCase() === m.fileName.toLowerCase()) ? 'Off: all its vehicles are switched off' : esc(desc(m))}</div></div>
           <label class="switch" title="Enable / disable"><input type="checkbox" data-en="${esc(m.fileName)}" ${m.enabled ? 'checked' : ''}><span class="track"></span></label></div>
       </div>`).join('')}</div>`
       : `<div class="empty" style="padding:24px">${icon('box')}<div>No mods on this server yet.</div></div>`}

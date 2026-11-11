@@ -200,9 +200,76 @@ class ServerManager extends EventEmitter {
   }
 
   // ---------- executable ----------
-  async latestRelease() {
+  async latestRelease(force = false) {
+    if (!force && this.releaseCache && Date.now() - this.releaseCache.at < 60 * 60 * 1000) return this.releaseCache.data;
     const r = await httpGet(RELEASE_API, { json: true });
-    return { version: r.tag_name, published: r.published_at, url: r.html_url };
+    const data = { version: r.tag_name, published: r.published_at, url: r.html_url };
+    this.releaseCache = { at: Date.now(), data };
+    return data;
+  }
+
+  // Version of a server's BeamMP-Server.exe ("v3.9.3"), read with --version and cached per exe file.
+  async exeVersion(s) {
+    const exe = this.exePath(s);
+    if (!exe) return null;
+    const st = fs.statSync(exe);
+    const key = `${st.size}:${Math.round(st.mtimeMs)}`;
+    if (s.exeVersion && s.exeVersion.key === key) return s.exeVersion.version;
+    const out = await new Promise((resolve) => {
+      execFile(exe, ['--version'], { cwd: require('os').tmpdir(), windowsHide: true, timeout: 10000 }, (err, stdout, stderr) => resolve(`${stdout || ''}${stderr || ''}`));
+    });
+    const m = stripAnsi(out).match(/v?(\d+\.\d+\.\d+)/);
+    const version = m ? `v${m[1]}` : null;
+    if (version) { s.exeVersion = { key, version }; this.store.save(); }
+    return version;
+  }
+
+  // Compare "v3.9.3"-style versions: >0 when a is newer than b.
+  static compareVersions(a, b) {
+    const pa = String(a || '').replace(/^v/, '').split('.').map(Number);
+    const pb = String(b || '').replace(/^v/, '').split('.').map(Number);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+      const d = (pa[i] || 0) - (pb[i] || 0);
+      if (d) return d;
+    }
+    return 0;
+  }
+
+  async updateInfo(id, force = false) {
+    const s = this.get(id);
+    const [current, latest] = await Promise.all([this.exeVersion(s), this.latestRelease(force).catch(() => null)]);
+    const newer = !!(current && latest?.version && ServerManager.compareVersions(latest.version, current) > 0);
+    return {
+      current,
+      latest: latest?.version || null,
+      url: latest?.url || null,
+      updateAvailable: newer,
+      ignored: newer && s.ignoredUpdate === latest.version,
+    };
+  }
+
+  ignoreUpdate(id, version) {
+    const s = this.get(id);
+    s.ignoredUpdate = version;
+    this.store.save();
+    this.emit('changed', id);
+  }
+
+  // Download the newest official server; stops and restarts it if it was running.
+  async updateExe(id) {
+    const wasRunning = this.procs.has(id);
+    if (wasRunning) {
+      this.pushLog(id, '■ Stopping the server to update BeamMP-Server…', 'sys');
+      await this.stop(id);
+    }
+    await this.downloadExe(id);
+    const s = this.get(id);
+    s.ignoredUpdate = null;
+    const version = await this.exeVersion(s);
+    this.pushLog(id, `✔ BeamMP-Server updated to ${version || 'the latest version'}`, 'sys');
+    if (wasRunning) await this.start(id);
+    this.emit('changed', id);
+    return { version, restarted: wasRunning };
   }
 
   async downloadExe(id) {
@@ -462,6 +529,9 @@ class ServerManager extends EventEmitter {
   }
 
   pushLog(id, line, kind = 'out') {
+    // BeamMP announces new versions in its log; surface that as an update banner right away.
+    const nv = line.match(/NEW VERSION IS OUT.*?\(v?(\d+\.\d+\.\d+)\)/i);
+    if (nv) this.emit('update-available', { id, version: `v${nv[1]}` });
     let arr = this.logs.get(id);
     if (!arr) this.logs.set(id, (arr = []));
     const entry = { t: Date.now(), line, kind };

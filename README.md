@@ -35,6 +35,9 @@ Build the installers with `npm run dist` (output in `dist/`).
 ## What it does
 - **Create servers** in the app: downloads the latest official `BeamMP-Server.exe` from GitHub and writes `ServerConfig.toml`.
 - **Add existing server folders** and manage several servers from the sidebar.
+- **BeamMP Server updates**: when a new official version is out, the dashboard shows an **Update / Ignore** banner,
+  and each server's Settings tab has an **Update server** button. Updating a running server stops it, installs the
+  new version and starts it again.
 - **Start / Stop / Restart** with a live console, command box (`say`, `kick`, `status`…), and crash detection.
 - **Dashboard**: status, uptime, players online (with kick), and the IP/port to port-forward (TCP + UDP), your router address, and a one-click Windows Firewall rule.
 - **Content Browser** (separate window):

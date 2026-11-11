@@ -276,6 +276,7 @@ async function renderDashboard(body) {
     ${!s.hasExe && s.exists ? `<div class="banner-msg warn">${icon('download')}<div class="grow">BeamMP-Server.exe is missing<small>Download the latest official server from GitHub (BeamMP/BeamMP-Server).</small>
       ${dl ? `<div class="progress ${dl.total ? '' : 'indeterminate'}" style="margin-top:8px"><div style="width:${dl.total ? (dl.got / dl.total) * 100 : 0}%"></div></div>` : ''}</div>
       <button class="btn primary sm" id="dlExe" ${dl ? 'disabled' : ''}>${icon('download')}${dl ? 'Downloading…' : 'Download server'}</button></div>` : ''}
+    <div id="updateBanner"></div>
     ${!s.hasAuthKey ? `<div class="banner-msg warn">${icon('key')}<div class="grow">No AuthKey set<small>Get a free key at keymaster.beammp.com and paste it in Settings → Authentication.</small></div>
       <button class="btn sm" id="getKey">${icon('external')}Get key</button><button class="btn sm" id="goCfg">Add key</button></div>` : ''}
     <div class="stats">
@@ -311,11 +312,13 @@ async function renderDashboard(body) {
             ${detailRow('Max players', s.maxPlayers)}
             ${detailRow('Visibility', s.private ? 'Private (direct connect only)' : 'Public (listed in server browser)')}
             ${detailRow('Process ID', s.pid || '—')}
+            <div class="row" style="padding:6px 2px"><span class="faint grow">BeamMP-Server version</span><span id="srvVersion" class="select-text">${s.hasExe ? '…' : 'not installed'}</span></div>
           </div>
         </div>
       </div>
     </div>`;
   $('#dlExe') && ($('#dlExe').onclick = () => downloadExe(s.id));
+  if (s.hasExe) loadUpdateBanner(s);
   $('#getKey') && ($('#getKey').onclick = () => api.call('ui:openExternal', KEYMASTER));
   $('#goCfg') && ($('#goCfg').onclick = () => switchTab('config'));
   $('#openBrowser').onclick = () => api.call('ui:openPicker', s.id, 'maps');
@@ -324,6 +327,82 @@ async function renderDashboard(body) {
   renderPlayers();
   loadNet(false);
 }
+
+// ---------- BeamMP server updates ----------
+const updating = new Set();
+async function loadUpdateBanner(s, force = false) {
+  const info = await api.call('servers:updateInfo', s.id, force).catch(() => null);
+  if (current()?.id !== s.id || state.tab !== 'dashboard') return;
+  const ver = $('#srvVersion');
+  if (ver && info) ver.textContent = info.current ? `${info.current}${info.updateAvailable ? ` (latest ${info.latest})` : ' (latest)'}` : 'unknown';
+  const box = $('#updateBanner');
+  if (!box) return;
+  if (!info?.updateAvailable || (info.ignored && !updating.has(s.id))) { box.innerHTML = ''; return; }
+  const busy = updating.has(s.id);
+  const running = s.status === 'running';
+  box.innerHTML = `<div class="banner-msg update">${icon('download')}<div class="grow">BeamMP Server update available: <b>${esc(info.latest)}</b>
+      <small>This server has ${esc(info.current)}.${running ? ' Updating stops the server, installs the update, then starts it again.' : ''}${info.url ? ` <a id="updNotes">What's new</a>` : ''}</small>
+      ${busy ? `<div class="progress indeterminate" style="margin-top:8px"><div></div></div>` : ''}</div>
+    <button class="btn sm ghost" id="updIgnore" ${busy ? 'disabled' : ''}>Ignore</button>
+    <button class="btn sm primary" id="updGo" ${busy ? 'disabled' : ''}>${busy ? '<div class="spinner" style="width:14px;height:14px"></div>Updating…' : `${icon('download')}Update`}</button></div>`;
+  $('#updNotes') && ($('#updNotes').onclick = () => api.call('ui:openExternal', info.url));
+  $('#updIgnore').onclick = async () => {
+    await api.call('servers:ignoreUpdate', s.id, info.latest);
+    box.innerHTML = '';
+    toast(`Ignoring ${info.latest}. You'll be told again when a newer version comes out.`, 'info');
+  };
+  $('#updGo').onclick = async () => {
+    if (running && !(await confirmBox('Update BeamMP Server?', `The server will stop for a moment while ${info.latest} is installed, then start again. Players online will be disconnected.`, { ok: 'Update now' }))) return;
+    updating.add(s.id);
+    loadUpdateBanner(s);
+    const r = await guard(() => api.call('servers:update', s.id));
+    updating.delete(s.id);
+    if (r) toast(`Updated to ${r.version}${r.restarted ? ' and restarted' : ''}`, 'success', 'BeamMP Server updated');
+    await refreshServers();
+    if (current()?.id === s.id && state.tab === 'dashboard') renderTab();
+  };
+}
+// Version bar at the top of a server's Settings tab (shows Update even if the banner was ignored).
+async function loadVersionBar(s, force = false) {
+  const bar = $('#versionBar');
+  if (!bar) return;
+  if (!s.hasExe) {
+    bar.innerHTML = `<div class="row">${icon('server')}<div class="grow"><b>BeamMP Server</b> <span class="faint">not installed</span></div><button class="btn sm primary" id="vbDl">${icon('download')}Download server</button></div>`;
+    $('#vbDl').onclick = () => { switchTab('dashboard'); downloadExe(s.id); };
+    return;
+  }
+  const info = await api.call('servers:updateInfo', s.id, force).catch(() => null);
+  if (current()?.id !== s.id || state.tab !== 'config' || !$('#versionBar')) return;
+  const busy = updating.has(s.id);
+  const status = !info?.current ? '<span class="faint">version unknown</span>'
+    : info.updateAvailable ? `<span class="pill update-pill">${icon('download')}${esc(info.latest)} available</span>`
+    : `<span class="pill running">${icon('check')}Up to date</span>`;
+  bar.innerHTML = `<div class="row">${icon('server')}
+    <div class="grow"><b>BeamMP Server ${esc(info?.current || '')}</b> ${status}
+      <div class="faint" style="font-size:12px">${info?.latest ? `Latest official release: ${esc(info.latest)}` : 'Could not reach GitHub to check for updates'}${info?.ignored ? ' · you chose Ignore on the dashboard' : ''}</div></div>
+    ${info?.url ? `<button class="btn sm ghost" id="vbNotes">${icon('external')}What's new</button>` : ''}
+    <button class="btn sm" id="vbCheck" ${busy ? 'disabled' : ''}>${icon('refresh')}Check again</button>
+    ${info?.updateAvailable ? `<button class="btn sm primary" id="vbUpdate" ${busy ? 'disabled' : ''}>${busy ? '<div class="spinner" style="width:14px;height:14px"></div>Updating…' : `${icon('download')}Update server`}</button>` : ''}
+  </div>`;
+  $('#vbNotes') && ($('#vbNotes').onclick = () => api.call('ui:openExternal', info.url));
+  $('#vbCheck').onclick = () => { bar.innerHTML = '<div class="row faint"><div class="spinner"></div>Checking…</div>'; loadVersionBar(s, true); };
+  $('#vbUpdate') && ($('#vbUpdate').onclick = async () => {
+    const running = current()?.status === 'running';
+    if (running && !(await confirmBox('Update BeamMP Server?', `The server will stop for a moment while ${info.latest} is installed, then start again. Players online will be disconnected.`, { ok: 'Update now' }))) return;
+    updating.add(s.id);
+    loadVersionBar(s);
+    const r = await guard(() => api.call('servers:update', s.id));
+    updating.delete(s.id);
+    if (r) toast(`Updated to ${r.version}${r.restarted ? ' and restarted' : ''}`, 'success', 'BeamMP Server updated');
+    await refreshServers();
+    if (current()?.id === s.id && state.tab === 'config' && !configDirty()) renderTab(); else loadVersionBar(current());
+  });
+}
+
+api.on('server:update', (e) => {
+  const s = current();
+  if (s && e.id === s.id && state.tab === 'dashboard') loadUpdateBanner(s, true);
+});
 
 const detailRow = (k, v) => `<div class="row" style="padding:6px 2px;border-bottom:1px solid var(--line)"><span class="faint grow">${esc(k)}</span><span class="select-text">${esc(v)}</span></div>`;
 
@@ -533,6 +612,7 @@ async function renderConfig(body) {
   };
   const m = mapInfo(G.Map);
   body.innerHTML = `
+    <div class="card version-bar" id="versionBar"><div class="row faint"><div class="spinner"></div>Checking BeamMP Server version…</div></div>
     ${s.status === 'running' ? `<div class="banner-msg warn">${icon('info')}<div class="grow">The server is running<small>Changes are saved to ServerConfig.toml and apply after a restart.</small></div></div>` : ''}
     <div class="cfg" id="cfgForm">
       <div class="card"><h3>${icon('server')}General</h3>
@@ -576,6 +656,7 @@ async function renderConfig(body) {
   $('#cfgKeymaster').onclick = () => api.call('ui:openExternal', KEYMASTER);
   $('#cfgPickMap').onclick = () => api.call('ui:openPicker', s.id, 'maps');
   $('#rawEdit').onclick = () => editText(s.id, 'ServerConfig.toml', true);
+  loadVersionBar(s);
   $('#sbReset').onclick = () => renderConfig(body);
   $('#sbSave').onclick = async () => {
     const vals = readCfgForm();

@@ -44,6 +44,7 @@ servers.on('log', (e) => broadcast('server:log', e));
 servers.on('status', (e) => broadcast('server:status', e));
 servers.on('changed', (id) => broadcast('server:changed', id));
 servers.on('download', (e) => broadcast('server:download', e));
+servers.on('update-available', (e) => broadcast('server:update', e));
 
 const winOpts = (extra) => ({
   backgroundColor: '#0b0d12',
@@ -277,6 +278,9 @@ function registerIpc() {
   handle('servers:get', (id) => servers.summary(servers.get(id)));
   handle('servers:download', (id) => servers.downloadExe(id));
   handle('servers:release', () => servers.latestRelease());
+  handle('servers:updateInfo', (id, force) => servers.updateInfo(id, force));
+  handle('servers:ignoreUpdate', (id, version) => servers.ignoreUpdate(id, version));
+  handle('servers:update', (id) => servers.updateExe(id));
   handle('servers:start', (id) => servers.start(id));
   handle('servers:stop', (id) => servers.stop(id));
   handle('servers:kill', (id) => servers.kill(id));

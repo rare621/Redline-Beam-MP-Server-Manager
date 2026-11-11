@@ -38,6 +38,12 @@ Build the installers with `npm run dist` (output in `dist/`).
 ## What it does
 - **Create servers** in the app: downloads the latest official `BeamMP-Server.exe` from GitHub and writes `ServerConfig.toml`.
 - **Add existing server folders** and manage several servers from the sidebar.
+- **Prep packs (no waiting when joining)**: the **Prep pack** button on a server makes one zip of every mod players
+  download from it, already named the way the BeamMP launcher caches them. Upload it anywhere (Google Drive, OneDrive,
+  a USB stick). Friends open Redline → **Prepped servers** → **Prep a server** and choose the zip: the mods go into
+  their BeamMP launcher cache (checksum-verified), so joining downloads nothing. **Update** swaps in a newer pack;
+  **Remove** can keep or delete the mods. Mods that were already on their PC are never changed or deleted.
+  (Without Redline: copy the files from the zip's `mods` folder into `%APPDATA%\BeamMP Launcher\Resources`.)
 - **BeamMP Server updates**: when a new official version is out, the dashboard shows an **Update / Ignore** banner,
   and each server's Settings tab has an **Update server** button. Updating a running server stops it, installs the
   new version and starts it again.

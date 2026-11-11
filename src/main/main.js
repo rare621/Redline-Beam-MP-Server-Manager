@@ -2,11 +2,13 @@ const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme, clipboard, safe
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
+const crypto = require('crypto');
 const { execFile, spawn } = require('child_process');
 const store = require('./store');
 const { ServerManager, httpGet } = require('./servers');
 const { ContentService } = require('./content');
 const { RemoteHost, RemoteClient, DEFAULT_PORT } = require('./remote');
+const { Prep } = require('./prep');
 
 nativeTheme.themeSource = 'dark';
 if (process.env.BEAMMP_MANAGER_DATA) app.setPath('userData', process.env.BEAMMP_MANAGER_DATA);
@@ -17,6 +19,8 @@ let quitting = false;
 
 const servers = new ServerManager(store);
 let content = null;
+let prep = null;
+let prepLocal = null;
 
 const handlers = {};
 const remoteClient = new RemoteClient();
@@ -546,6 +550,84 @@ function registerIpc() {
     return r.canceled ? [] : r.filePaths;
   });
   handle('fs:isDir', (p) => { try { return fs.statSync(p).isDirectory(); } catch { return false; } });
+  handle('dialog:saveFile', async (opts = {}) => {
+    const r = await dialog.showSaveDialog(win(), {
+      title: opts.title || 'Save',
+      defaultPath: path.join(app.getPath('downloads'), opts.defaultName || 'file.zip'),
+      filters: [{ name: 'Zip file', extensions: ['zip'] }],
+    });
+    return r.canceled ? null : r.filePath;
+  });
+
+  // ---- prep packs ----
+  // Server side (runs on the host when remote): build a pack, and delete it after it's been fetched.
+  handle('prep:build', (id) => prep.buildPack(id));
+  handle('prep:packCleanup', (name) => prep.removePack(name));
+  // Save a built pack to a path on THIS computer (downloads it from the host when remote).
+  handle('local:prepExport', async (packName, dest) => {
+    if (remoteClient.connected) {
+      await remoteClient.download(`/pack/${encodeURIComponent(packName)}`, dest, (got, total) =>
+        sendToWindows('prep:progress', { phase: 'progress', step: 'download', done: got, total }));
+      remoteClient.call('prep:packCleanup', [packName]).catch(() => {});
+    } else {
+      const src = prep.packPath(packName);
+      try { await fs.promises.rename(src, dest); } catch (e) {
+        if (e.code !== 'EXDEV' && e.code !== 'EEXIST' && e.code !== 'EPERM') throw e;
+        await fs.promises.copyFile(src, dest);
+        await fs.promises.rm(src, { force: true });
+      }
+    }
+    return { dest, size: fs.statSync(dest).size };
+  });
+  // Player side: installed packs are tracked so they can be updated or removed cleanly.
+  const prepped = () => (store.settings.prepped = store.settings.prepped || []);
+  const lc = (s) => String(s).toLowerCase();
+  // Delete files a pack put in the launcher cache, unless another prepped server still uses them.
+  const releaseFiles = async (entry, keep = new Set()) => {
+    const others = new Set(prepped().filter((p) => p !== entry).flatMap((p) => p.cacheNames.map(lc)));
+    const removed = [];
+    for (const c of entry.owned || []) {
+      if (keep.has(lc(c)) || others.has(lc(c))) continue;
+      try { await fs.promises.rm(path.join(entry.dir, path.basename(c)), { force: true }); removed.push(c); } catch { /* ignore */ }
+    }
+    return removed;
+  };
+  handle('local:cacheDir', () => content.beammpResourcesDir());
+  handle('ui:showItem', (p) => shell.showItemInFolder(String(p)));
+  handle('local:prepList', () => prepped().map((p) => {
+    let present = 0;
+    // A mod counts as present under its launcher name ("name-1a2b3c4d.zip") or its plain name.
+    for (const c of p.cacheNames) {
+      const base = path.basename(c);
+      if (fs.existsSync(path.join(p.dir, base)) || fs.existsSync(path.join(p.dir, base.replace(/-[0-9a-f]{8}(\.zip)$/i, '$1')))) present++;
+    }
+    return { id: p.id, server: p.server, created: p.created, installedAt: p.installedAt, size: p.size, mods: p.cacheNames.length, present, dir: p.dir };
+  }));
+  handle('local:prepInstall', async (zipFile, replaceId) => {
+    const r = await prepLocal.installPack(zipFile);
+    const list = prepped();
+    const old = (replaceId && list.find((p) => p.id === replaceId)) || list.find((p) => lc(p.server) === lc(r.server));
+    const newSet = new Set(r.cacheNames.map(lc));
+    const owned = r.installed.map((x) => x.cacheName);
+    let removed = [];
+    if (old) {
+      for (const c of old.owned || []) if (newSet.has(lc(c)) && !owned.some((o) => lc(o) === lc(c))) owned.push(c);
+      removed = await releaseFiles(old, newSet);
+      list.splice(list.indexOf(old), 1);
+    }
+    list.push({ id: old?.id || crypto.randomUUID(), server: r.server, created: r.created, installedAt: Date.now(), size: r.totalBytes, cacheNames: r.cacheNames, owned, dir: r.dest });
+    store.save();
+    return { server: r.server, dest: r.dest, installed: r.installed.length, skipped: r.skipped.length, failed: r.failed, removed: removed.length, updated: !!old, total: r.total };
+  });
+  handle('local:prepRemove', async (id, deleteFiles) => {
+    const list = prepped();
+    const entry = list.find((p) => p.id === id);
+    if (!entry) throw new Error('That prepped server is no longer listed');
+    const removed = deleteFiles ? await releaseFiles(entry) : [];
+    list.splice(list.indexOf(entry), 1);
+    store.save();
+    return { removed: removed.length, server: entry.server };
+  });
 
   // ---- remote management ----
   const uploadDir = path.join(app.getPath('userData'), 'remote-uploads');
@@ -608,7 +690,7 @@ function registerIpc() {
     setTimeout(reloadWindows, 150);
   });
 
-  remoteHost = new RemoteHost({ handlers, thumbDir: path.join(app.getPath('userData'), 'thumbs'), uploadDir, store });
+  remoteHost = new RemoteHost({ handlers, thumbDir: path.join(app.getPath('userData'), 'thumbs'), uploadDir, store, packDir: path.join(app.getPath('userData'), 'prep-packs') });
   fs.mkdirSync(uploadDir, { recursive: true });
   if (remoteHost.config.enabled) remoteHost.start().catch((e) => console.warn('Remote host failed to start:', e.message));
 }
@@ -631,6 +713,9 @@ function clearWebCache() {
 app.whenReady().then(() => {
   clearWebCache();
   content = new ContentService({ dataDir: app.getPath('userData'), getSettings: () => store.settings, emit: broadcast });
+  // Building packs is server-side work (events reach remote viewers too); installing is always local.
+  prep = new Prep({ dataDir: app.getPath('userData'), servers, emit: broadcast, launcherCacheDir: () => content.beammpResourcesDir() });
+  prepLocal = new Prep({ dataDir: app.getPath('userData'), servers, emit: sendToWindows, launcherCacheDir: () => content.beammpResourcesDir() });
   registerIpc();
   createMain();
   // The central library moved to the BeamMP Launcher's Resources folder: move anything from the

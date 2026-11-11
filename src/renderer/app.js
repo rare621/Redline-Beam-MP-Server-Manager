@@ -9,6 +9,7 @@ const state = {
   players: [],
   filesRel: '',
   downloads: new Map(),
+  view: 'home', // 'home' | 'servers' | 'prepped'
   modContent: { id: null, maps: [], vehicles: [] }, // maps/vehicles inside the selected server's mods
 };
 const TABS = [
@@ -51,8 +52,10 @@ api.on('server:log', (e) => onLog(e));
 api.on('server:download', (e) => onDownload(e));
 
 refreshServers().then(() => {
-  if (state.servers.length) select(state.servers[0].id);
-  else renderMain();
+  // Start on the home screen; remember the first server for when "Manage servers" is opened.
+  if (state.servers.length) state.selected = state.servers[0].id;
+  renderSidebar();
+  renderMain();
   setupCheck();
   // Redline updates: check shortly after launch, then every hour while open.
   setTimeout(() => checkRedlineUpdate(), 5000);
@@ -187,6 +190,7 @@ function renderSidebar() {
 function select(id) {
   if (state.selected !== id) { state.players = []; state.filesRel = ''; }
   state.selected = id;
+  state.view = 'servers';
   renderSidebar();
   renderMain();
 }
@@ -194,6 +198,10 @@ function select(id) {
 // ---------- main ----------
 function renderMain() {
   const main = $('#main');
+  document.querySelector('.shell').classList.toggle('no-sidebar', state.view !== 'servers');
+  $('#btnHome')?.classList.toggle('hidden', state.view === 'home');
+  if (state.view === 'home') return renderHome(main);
+  if (state.view === 'prepped') return renderPrepped(main);
   const s = current();
   if (!s) {
     main.innerHTML = `
@@ -284,6 +292,7 @@ function renderHeaderOnly() {
         ? `<button class="btn" id="cRestart" ${s.status === 'stopping' ? 'disabled' : ''}>${icon('restart')}Restart</button>
            <button class="btn danger" id="cStop" ${s.status === 'stopping' ? 'disabled' : ''}>${icon('stop')}Stop</button>`
         : `<button class="btn success" id="cStart" ${s.hasExe ? '' : 'disabled title="Download the server first"'}>${icon('play')}Start server</button>`}
+      <button class="btn" id="cPrep" title="Make a prep pack so players can pre-download this server's mods">${icon('box')}Prep pack</button>
       <button class="btn icon" id="cMore" title="Rename / remove">${icon('edit')}</button>
     </div>`;
   $('#hdrPath').onclick = () => api.call('files:reveal', s.id, '');
@@ -291,6 +300,7 @@ function renderHeaderOnly() {
   $('#cStop') && ($('#cStop').onclick = () => guard(() => api.call('servers:stop', s.id)));
   $('#cRestart') && ($('#cRestart').onclick = () => guard(() => api.call('servers:restart', s.id), 'Server restarted'));
   $('#cMore').onclick = () => serverMenu(s);
+  $('#cPrep').onclick = () => prepPackDialog(s);
   const m = mapInfo(s.map);
   const banner = $('#banner');
   if (banner) banner.style.backgroundImage = m.thumb ? `url("${m.thumb}")` : 'none';
@@ -1275,6 +1285,174 @@ async function remoteDialog() {
         btn.closest('.lrow').remove();
         toast(`Forgot ${r.hostName || r.host}`, 'success');
       };
+    },
+  });
+}
+
+// ---------- home screen ----------
+$('#btnHome').innerHTML = icon('back') + 'Home';
+$('#btnHome').onclick = () => { state.view = 'home'; renderMain(); };
+
+async function renderHome(main) {
+  const running = state.servers.filter((s) => s.status === 'running').length;
+  const prepped = await api.call('local:prepList').catch(() => []);
+  if (state.view !== 'home') return;
+  main.innerHTML = `
+    <div class="home"><div class="home-inner">
+      <div class="hero-logo">${LOGO}</div>
+      <h1>Welcome to <span>Redline</span></h1>
+      <p class="muted">What would you like to do?</p>
+      <div class="home-cards">
+        <div class="home-card" id="hcServers" style="animation-delay:80ms">
+          <div class="hc-ic">${icon('server')}</div>
+          <div class="hc-t">Manage servers</div>
+          <div class="hc-d">Create, run and set up your BeamMP servers: maps, vehicles, mods, players and remote control.</div>
+          <div class="hc-f"><span class="pill ${running ? 'running' : ''}">${running ? `<span class="dot"></span>${running} running` : `${state.servers.length} server${state.servers.length === 1 ? '' : 's'}`}</span>${icon('chevron')}</div>
+        </div>
+        <div class="home-card" id="hcPrepped" style="animation-delay:160ms">
+          <div class="hc-ic prep">${icon('download')}</div>
+          <div class="hc-t">Prepped servers</div>
+          <div class="hc-d">Install a friend's prep pack so their server's mods are already downloaded and joining is instant.</div>
+          <div class="hc-f"><span class="pill blue">${prepped.length} prepped</span>${icon('chevron')}</div>
+        </div>
+      </div>
+    </div></div>`;
+  $('#hcServers').onclick = () => {
+    state.view = 'servers';
+    if (!state.selected && state.servers.length) state.selected = state.servers[0].id;
+    renderSidebar();
+    renderMain();
+  };
+  $('#hcPrepped').onclick = () => { state.view = 'prepped'; renderMain(); };
+}
+
+// ---------- prepped servers (player side) ----------
+async function renderPrepped(main) {
+  const [list, cacheDir] = await Promise.all([api.call('local:prepList').catch(() => []), api.call('local:cacheDir').catch(() => '')]);
+  if (state.view !== 'prepped') return;
+  list.sort((a, b) => b.installedAt - a.installedAt);
+  main.innerHTML = `
+    <div class="prepped">
+      <div class="prepped-head">
+        <div class="grow"><h1>Prepped servers</h1>
+          <div class="muted">Servers whose mods are already downloaded on this PC, so joining them in BeamMP doesn't have to download anything.</div></div>
+        <button class="btn primary" id="ppAdd">${icon('plus')}Prep a server</button>
+      </div>
+      <div class="notice-line">${icon('info')}<span>Ask the server owner for their <b>prep pack</b> (a zip made with the Prep pack button in Redline), then click <b>Prep a server</b> and choose it. Mods go into <span class="mono">${esc(cacheDir)}</span>, where the BeamMP launcher looks for them. Mods already there are never changed.</span></div>
+      <div class="list" id="ppList">${list.length ? list.map((p, i) => `
+        <div class="lrow pp-row" style="animation-delay:${i * 40}ms">
+          <div class="ic-box dir">${icon('download')}</div>
+          <div class="grow"><div class="t ellipsis">${esc(stripCodes(p.server))}</div>
+            <div class="s">${p.mods} mod${p.mods === 1 ? '' : 's'} · ${fmtBytes(p.size)} · installed ${new Date(p.installedAt).toLocaleString()}${p.created ? ` · pack made ${new Date(p.created).toLocaleDateString()}` : ''}</div></div>
+          ${p.present < p.mods ? `<span class="pill crashed" title="Some files are no longer in the launcher folder. Update with the pack to put them back.">${icon('alert')}${p.mods - p.present} missing</span>` : `<span class="pill running">${icon('check')}Ready</span>`}
+          <button class="btn sm" data-ppupd="${esc(p.id)}">${icon('refresh')}Update</button>
+          <button class="btn sm icon ghost" data-pprm="${esc(p.id)}" title="Remove">${icon('trash')}</button>
+        </div>`).join('') : `<div class="empty">${icon('download')}<div>No prepped servers yet.<br>Click <b>Prep a server</b> and choose a prep pack zip from a friend.</div></div>`}</div>
+    </div>`;
+  $('#ppAdd').onclick = () => prepInstallFlow();
+  for (const b of $$('[data-ppupd]', main)) b.onclick = () => prepInstallFlow(list.find((p) => p.id === b.dataset.ppupd));
+  for (const b of $$('[data-pprm]', main)) {
+    b.onclick = async () => {
+      const p = list.find((x) => x.id === b.dataset.pprm);
+      const choice = await modal({
+        title: `Remove ${stripCodes(p.server)}?`,
+        body: `<div class="muted" style="white-space:pre-wrap">Choose what to remove.
+
+<b>Remove from list only</b>: it disappears from this page and every mod stays on this PC.
+
+<b>Remove and delete its mods</b>: also deletes the mods this pack added. Mods that were already on this PC before, or that another prepped server uses, are always kept. If you join the server later, BeamMP simply downloads what it needs.</div>`,
+        actions: [
+          { label: 'Cancel', value: null },
+          { label: 'Remove from list only', value: 'list' },
+          { label: 'Remove and delete its mods', cls: 'danger', value: 'files' },
+        ],
+      });
+      if (!choice) return;
+      const r = await guard(() => api.call('local:prepRemove', p.id, choice === 'files'));
+      if (r) toast(choice === 'files' ? `${r.removed} mod file${r.removed === 1 ? '' : 's'} deleted` : 'All its mods were kept', 'success', `Removed ${stripCodes(r.server)}`);
+      renderMain();
+    };
+  }
+}
+
+// Install (or update) a prep pack chosen by the player.
+async function prepInstallFlow(existing) {
+  const files = await api.call('dialog:openFiles', { zip: true, title: existing ? `Choose the new prep pack for ${stripCodes(existing.server)}` : 'Choose a prep pack (.zip)' });
+  if (!files.length) return;
+  const file = files[0];
+  let off = null;
+  await modal({
+    title: existing ? `Updating ${stripCodes(existing.server)}` : 'Prepping server',
+    dismissable: false,
+    body: `<div class="faint" id="piStatus">Checking the pack…</div><div class="progress"><div id="piBar" style="width:0%"></div></div><div class="faint" id="piMeta" style="font-size:12px"></div>`,
+    actions: [],
+    onMount: async (b, close) => {
+      off = api.on('prep:progress', (p) => {
+        if (p.phase !== 'progress') return;
+        $('#piBar', b).style.width = (p.total ? (p.done / p.total) * 100 : 0) + '%';
+        $('#piStatus', b).textContent = `Installing ${p.file}…`;
+        $('#piMeta', b).textContent = `${fmtBytes(p.done)} of ${fmtBytes(p.total)}`;
+      });
+      const r = await guard(() => api.call('local:prepInstall', file, existing?.id));
+      off?.();
+      close(null);
+      if (!r) return;
+      const parts = [`${r.installed} installed`, `${r.skipped} already on this PC`];
+      if (r.removed) parts.push(`${r.removed} old mod${r.removed === 1 ? '' : 's'} removed`);
+      if (r.failed.length) parts.push(`${r.failed.length} failed`);
+      await modal({
+        title: r.failed.length ? 'Prepped, with problems' : `${stripCodes(r.server)} is ready`,
+        body: `<div class="row"><div class="ic-box ${r.failed.length ? '' : 'dir'}" style="width:46px;height:46px">${icon(r.failed.length ? 'alert' : 'check')}</div>
+          <div class="grow"><div style="font-weight:700">${parts.join(' · ')}</div>
+          <div class="faint" style="font-size:12px;margin-top:4px">${r.failed.length ? `These didn't pass the safety check and were not installed (BeamMP will download them when you join): ${esc(r.failed.join(', '))}` : 'Join the server in BeamMP as usual. Its mods are already on this PC, so nothing needs to download.'}</div></div></div>`,
+        actions: [{ label: 'Done', primary: true, value: null }],
+      });
+      if (state.view === 'prepped') renderMain();
+    },
+  });
+}
+
+// ---------- prep pack (server owner side) ----------
+async function prepPackDialog(s) {
+  const mods = (await api.call('mods:list', s.id).catch(() => [])).filter((m) => m.enabled);
+  if (!mods.length) return toast("This server has no mods for players to download, so there's nothing to prep.", 'info');
+  const bytes = mods.reduce((a, m) => a + m.size, 0);
+  const go = await confirmBox('Make a prep pack',
+    `This makes one zip with the ${mods.length} mod${mods.length === 1 ? '' : 's'} (${fmtBytes(bytes)}) players download from "${stripCodes(s.title || s.name)}".\n\nUpload it anywhere (Google Drive, OneDrive, Dropbox, a USB stick). Your friends install it in Redline with Prepped servers → Prep a server, and joining your server won't download anything.\n\nNext, choose where to save it.`,
+    { ok: 'Choose where to save' });
+  if (!go) return;
+  const safe = stripCodes(s.title || s.name).replace(/[<>:"/\\|?*\x00-\x1f]/g, '').trim() || 'Server';
+  const dest = await api.call('dialog:saveFile', { title: 'Save prep pack', defaultName: `Redline Prep - ${safe}.zip` });
+  if (!dest) return;
+  let off = null;
+  await modal({
+    title: 'Making prep pack',
+    dismissable: false,
+    body: `<div class="faint" id="ppStatus">Checking mod files…</div><div class="progress"><div id="ppBar" style="width:0%"></div></div><div class="faint" id="ppMeta" style="font-size:12px"></div>`,
+    actions: [],
+    onMount: async (b, close) => {
+      off = api.on('prep:progress', (p) => {
+        if (p.phase !== 'progress') return;
+        const label = { hash: 'Checking', write: 'Packing' }[p.step] || 'Working on';
+        $('#ppBar', b).style.width = (p.total ? (p.done / p.total) * 100 : 0) + '%';
+        $('#ppStatus', b).textContent = p.step === 'download' ? 'Saving the pack to this PC…' : `${label} ${p.file}…`;
+        $('#ppMeta', b).textContent = p.step === 'download' ? `${fmtBytes(p.done)} of ${fmtBytes(p.total)}` : '';
+      });
+      const built = await guard(() => api.call('prep:build', s.id));
+      if (!built) { off?.(); close(null); return; }
+      $('#ppBar', b).style.width = '0%';
+      const saved = await guard(() => api.call('local:prepExport', built.name, dest));
+      off?.();
+      close(null);
+      if (!saved) return;
+      await modal({
+        title: 'Prep pack ready',
+        body: `<div class="row"><div class="ic-box dir" style="width:46px;height:46px">${icon('check')}</div>
+          <div class="grow"><div style="font-weight:700">${built.mods} mod${built.mods === 1 ? '' : 's'} · ${fmtBytes(saved.size)}</div>
+          <div class="faint select-text" style="font-size:12px;margin-top:4px">${esc(saved.dest)}</div></div></div>
+          <div class="muted" style="font-size:13px">Upload this file and send your friends the link. They open Redline → <b>Prepped servers</b> → <b>Prep a server</b> and choose it. If you change the server's mods, make a new pack and they can click <b>Update</b>.</div>`,
+        actions: [{ label: 'Show in folder', icon: 'folder', onClick: () => { api.call('ui:showItem', saved.dest); return false; } }, { label: 'Done', primary: true, value: null }],
+      });
     },
   });
 }

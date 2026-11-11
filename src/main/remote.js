@@ -51,7 +51,8 @@ function send(res, status, obj) {
 }
 
 class RemoteHost {
-  constructor({ handlers, thumbDir, uploadDir, store }) {
+  constructor({ handlers, thumbDir, uploadDir, store, packDir }) {
+    this.packDir = packDir;
     this.handlers = handlers;
     this.thumbDir = thumbDir;
     this.uploadDir = uploadDir;
@@ -214,6 +215,15 @@ class RemoteHost {
       return send(res, 200, { ok: true });
     }
 
+    // Prep packs built on the host, downloaded by the remote PC that asked for them.
+    if (p.startsWith('/pack/') && this.packDir) {
+      const name = path.basename(decodeURIComponent(p.slice(6)));
+      const file = path.join(this.packDir, name);
+      if (!/\.zip$/i.test(name) || !fs.existsSync(file)) { res.writeHead(404); return res.end(); }
+      res.writeHead(200, { 'Content-Type': 'application/zip', 'Content-Length': fs.statSync(file).size, 'Cache-Control': 'no-store' });
+      return fs.createReadStream(file).pipe(res);
+    }
+
     if (p.startsWith('/thumb/')) {
       const name = path.basename(decodeURIComponent(p.slice(7)));
       const file = path.join(this.thumbDir, name);
@@ -363,6 +373,25 @@ class RemoteClient extends EventEmitter {
     this.reconnecting = false;
     this.token = null;
     if (!silent) this.emit('state', this.status());
+  }
+
+  // Download a file the host offers (e.g. a prep pack) to a path on this PC, with progress.
+  download(pathName, dest, onProgress) {
+    return new Promise((resolve, reject) => {
+      const req = http.get(`${this.base}${pathName}`, { headers: { 'x-redline-token': this.token } }, (res) => {
+        if (res.statusCode !== 200) { res.resume(); return reject(new Error(`The host couldn't send the file (HTTP ${res.statusCode})`)); }
+        const total = Number(res.headers['content-length']) || 0;
+        let got = 0;
+        const tmp = `${dest}.part`;
+        const out = fs.createWriteStream(tmp);
+        res.on('data', (c) => { got += c.length; onProgress?.(got, total); });
+        res.pipe(out);
+        out.on('close', () => fsp.rename(tmp, dest).then(() => resolve({ size: got }), reject));
+        out.on('error', reject);
+        res.on('error', reject);
+      });
+      req.on('error', reject);
+    });
   }
 
   // Upload local files/folders to the host; returns the matching host paths.

@@ -343,9 +343,14 @@ class ContentService {
   // The BeamMP Launcher's Resources folder (where BeamMP keeps multiplayer mods).
   beammpResourcesDir() {
     const roaming = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-    const current = path.join(roaming, 'BeamMP Launcher', 'Resources');
-    const legacy = path.join(roaming, 'BeamMP-Launcher', 'Resources');
-    return fs.existsSync(current) || !fs.existsSync(legacy) ? current : legacy;
+    const launchers = [path.join(roaming, 'BeamMP Launcher'), path.join(roaming, 'BeamMP-Launcher')];
+    const launcher = launchers.find((d) => fs.existsSync(path.join(d, 'Resources'))) || launchers.find((d) => fs.existsSync(d)) || launchers[0];
+    // The launcher's cache folder, as set by "CachingDirectory" in Launcher.cfg (default ./Resources).
+    try {
+      const cfg = JSON.parse(fs.readFileSync(path.join(launcher, 'Launcher.cfg'), 'utf8'));
+      if (typeof cfg.CachingDirectory === 'string' && cfg.CachingDirectory.trim()) return path.resolve(launcher, cfg.CachingDirectory.trim());
+    } catch { /* default */ }
+    return path.join(launcher, 'Resources');
   }
 
   // Older Redline versions used this folder as the central library.

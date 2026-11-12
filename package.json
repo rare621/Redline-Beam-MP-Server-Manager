@@ -54,5 +54,6 @@
     "type": "git",
     "url": "https://github.com/rare621/Redline-Beam-MP-Server-Manager.git"
   },
-  "homepage": "https://github.com/rare621/Redline-Beam-MP-Server-Manager"
+  "homepage": "https://github.com/rare621/Redline-Beam-MP-Server-Manager",
+  "license": "MIT"
 }

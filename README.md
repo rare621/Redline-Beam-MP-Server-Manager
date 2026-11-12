@@ -29,11 +29,29 @@ Redline checks this page for new versions when it starts and every hour. When on
 download and install it for you (the portable exe opens the download page instead).
 
 ## Run from source
+Needs [Node.js](https://nodejs.org) (the LTS version is recommended) and Windows.
 ```bash
+git clone https://github.com/rare621/Redline-Beam-MP-Server-Manager.git
+cd Redline-Beam-MP-Server-Manager
 npm install
 npm start
 ```
 Build the installers with `npm run dist` (output in `dist/`).
+
+The code is plain JavaScript with no build step: `src/main` is the Electron main process (servers, mods,
+remote control, prep packs) and `src/renderer` is the UI (`app.js` main window, `picker.js` Content Browser).
+
+### If `npm start` says "Electron failed to install correctly"
+With some newer Node.js versions, `npm install` downloads Electron but fails to unpack it. Fix it with either:
+1. **Use the Node.js LTS version**, delete the `node_modules` folder and run `npm install` again, or
+2. **Unpack it by hand** (PowerShell, in the project folder):
+   ```powershell
+   $zip = Get-ChildItem "$env:LOCALAPPDATA\electron\Cache" -Recurse -Filter "electron-v*-win32-x64.zip" | Sort-Object LastWriteTime | Select-Object -Last 1
+   Remove-Item node_modules\electron\dist -Recurse -Force -ErrorAction SilentlyContinue
+   Expand-Archive $zip.FullName node_modules\electron\dist
+   Set-Content node_modules\electron\path.txt "electron.exe" -NoNewline -Encoding ascii
+   ```
+   (Use the zip whose version matches `node_modules\electron\package.json`.)
 
 ## What it does
 - **Create servers** in the app: downloads the latest official `BeamMP-Server.exe` from GitHub and writes `ServerConfig.toml`.
@@ -86,3 +104,7 @@ Build the installers with `npm run dist` (output in `dist/`).
 - Disabled mods are moved to `<server>/.manager/disabled_mods` so BeamMP doesn't load them.
 - **Removing a mod** deletes it from the server for good, but your copy is always kept: in the central mods library or your BeamNG mods folder (if it was only on the server, it is saved to the library first). Deleting plugins, files or servers sends them to the Recycle Bin.
 - Photos are read from your BeamNG.drive install and cached in `%APPDATA%/Redline/thumbs`.
+
+## License
+[MIT](LICENSE): you're free to use, modify and share Redline, as long as the copyright notice stays included.
+Contributions and forks are welcome.
